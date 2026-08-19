@@ -1,0 +1,44 @@
+name: Deploy webbooks to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Stage site
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          cp -R site _site
+          mkdir -p _site/recovery/aa/twelve-traditions
+          cp books/recovery/aa/twelve-traditions/book.md _site/recovery/aa/twelve-traditions/book.md
+          cp books/recovery/aa/twelve-traditions/book.yaml _site/recovery/aa/twelve-traditions/book.yaml
+          test "$(sha256sum _site/recovery/aa/twelve-traditions/book.md | awk '{print $1}')" = "b4d64ad1899b1de37548283fefbb3f4dd99844d8603844e03e0d9bee645183c7"
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
