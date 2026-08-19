@@ -1,0 +1,62 @@
+name: Publish Mechthild webbook once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.webbook-upload/mechthild/.trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reassemble verified publication package
+        shell: bash
+        run: |
+          set -euo pipefail
+          upload='.webbook-upload/mechthild'
+          cat "$upload"/part-*.b64 | base64 -d > /tmp/mechthild-webbooks-additions.tar.xz
+          echo '770de16876fa017e00313d5ab0e0751de32b1608229a2918ed47f0574fd4907e  /tmp/mechthild-webbooks-additions.tar.xz' | sha256sum -c -
+          tar -tJf /tmp/mechthild-webbooks-additions.tar.xz >/dev/null
+
+      - name: Install without overwriting existing publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e 'books/christianity/mechthild'
+          test ! -e 'site/index.html'
+          test ! -e 'site/catalog.json'
+          test ! -e 'site/read'
+          test ! -e '.github/workflows/deploy-pages.yml'
+          tar -xJf /tmp/mechthild-webbooks-additions.tar.xz -C .
+
+          test -f 'books/christianity/mechthild/book.yaml'
+          test -f 'books/christianity/mechthild/manifest.json'
+          test -f 'site/index.html'
+          test -f 'site/read/index.html'
+          test -f '.github/workflows/deploy-pages.yml'
+          count="$(find 'books/christianity/mechthild/chapters' -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')"
+          echo "Mechthild chapter files: $count"
+          test "$count" = '44'
+
+      - name: Commit publication and remove transfer scaffolding
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'books/christianity/mechthild'
+          git add 'site/index.html' 'site/catalog.json' 'site/read'
+          git add '.github/workflows/deploy-pages.yml'
+          git rm -r '.webbook-upload/mechthild'
+          git rm '.github/workflows/publish-mechthild-once.yml'
+          git commit -m 'Publish Mechthild webbook'
+          git push origin HEAD:main
