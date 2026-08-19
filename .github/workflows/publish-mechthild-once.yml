@@ -22,9 +22,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          upload='.webbook-upload/mechthild'
-          cat "$upload"/part-*.b64 | base64 -d > /tmp/mechthild-webbooks-additions.tar.xz
-          echo '770de16876fa017e00313d5ab0e0751de32b1608229a2918ed47f0574fd4907e  /tmp/mechthild-webbooks-additions.tar.xz' | sha256sum -c -
+          python - <<'PY'
+          from pathlib import Path
+          upload = Path('.webbook-upload/mechthild')
+          text = ''.join(p.read_text(encoding='utf-8') for p in sorted(upload.glob('part-*.txt')))
+          acc = 0
+          nbits = 0
+          out = bytearray()
+          for ch in text:
+              v = ord(ch) - 0x3400
+              if not 0 <= v < 32768:
+                  raise SystemExit('Invalid transfer character')
+              acc = (acc << 15) | v
+              nbits += 15
+              while nbits >= 8:
+                  nbits -= 8
+                  out.append((acc >> nbits) & 0xff)
+                  acc &= (1 << nbits) - 1 if nbits else 0
+          Path('/tmp/mechthild-webbooks-additions.tar.xz').write_bytes(bytes(out[:414820]))
+          PY
+          echo '501111bed63f5cbcd9dc75c5baa47f0e4eafdcd6719cddd0f82fc269ca0f0231  /tmp/mechthild-webbooks-additions.tar.xz' | sha256sum -c -
           tar -tJf /tmp/mechthild-webbooks-additions.tar.xz >/dev/null
 
       - name: Install without overwriting existing publication
