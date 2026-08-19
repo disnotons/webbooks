@@ -1,0 +1,40 @@
+name: Materialize AA Twelve Traditions source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.webbook-upload/aa-twelve-traditions/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Reconstruct exact Markdown
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir='.webbook-upload/aa-twelve-traditions'
+          cat "$dir"/part-*.b64 | base64 -d | bzip2 -d > /tmp/book.md
+          got="$(sha256sum /tmp/book.md | awk '{print $1}')"
+          echo "source sha256: $got"
+          test "$got" = 'b4d64ad1899b1de37548283fefbb3f4dd99844d8603844e03e0d9bee645183c7'
+          mkdir -p books/recovery/aa/twelve-traditions
+          cp /tmp/book.md books/recovery/aa/twelve-traditions/book.md
+          rm -rf "$dir"
+      - name: Commit materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add books/recovery/aa/twelve-traditions/book.md
+          git add -u .webbook-upload/aa-twelve-traditions || true
+          git commit -m 'Publish AA Twelve Traditions exact source'
+          git push origin HEAD:main
