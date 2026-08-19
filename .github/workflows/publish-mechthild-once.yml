@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/publish-mechthild-once.yml'
+      - '.webbook-upload/mechthild/.trigger'
   workflow_dispatch:
 
 permissions:
