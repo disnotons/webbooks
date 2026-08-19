@@ -1,31 +1,38 @@
-name: Publish Mechthild webbook once
+name: Recover and publish Mechthild webbook once
 
 on:
   push:
     branches: [main]
     paths:
-      - '.webbook-upload/mechthild/.trigger'
+      - '.github/workflows/publish-mechthild-once.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Reassemble verified publication package
+      - name: Recover existing verified transfer package
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
+          python - <<'PY2'
           from pathlib import Path
           upload = Path('.webbook-upload/mechthild')
-          text = ''.join(p.read_text(encoding='utf-8') for p in sorted(upload.glob('part-*.txt')))
+          parts = sorted(upload.glob('part-*.txt'))
+          if len(parts) != 4:
+              raise SystemExit(f'Expected 4 recovery parts, found {len(parts)}')
+          text = ''.join(p.read_text(encoding='utf-8') for p in parts)
           acc = 0
           nbits = 0
           out = bytearray()
@@ -39,41 +46,162 @@ jobs:
                   nbits -= 8
                   out.append((acc >> nbits) & 0xff)
                   acc &= (1 << nbits) - 1 if nbits else 0
-          Path('/tmp/mechthild-webbooks-additions.tar.xz').write_bytes(bytes(out[:414820]))
-          PY
-          echo '501111bed63f5cbcd9dc75c5baa47f0e4eafdcd6719cddd0f82fc269ca0f0231  /tmp/mechthild-webbooks-additions.tar.xz' | sha256sum -c -
-          tar -tJf /tmp/mechthild-webbooks-additions.tar.xz >/dev/null
+          Path('/tmp/mechthild-package.tar.xz').write_bytes(bytes(out[:414820]))
+          PY2
+          echo '501111bed63f5cbcd9dc75c5baa47f0e4eafdcd6719cddd0f82fc269ca0f0231  /tmp/mechthild-package.tar.xz' | sha256sum -c -
+          rm -rf /tmp/mechthild-package
+          mkdir -p /tmp/mechthild-package
+          tar -xJf /tmp/mechthild-package.tar.xz -C /tmp/mechthild-package
+          test -d /tmp/mechthild-package/books/christianity/mechthild/chapters
 
-      - name: Install without overwriting existing publication
+      - name: Verify all 44 Markdown bodies against current source package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY2'
+          from pathlib import Path
+          import hashlib
+          import json, base64
+          expected = json.loads(base64.b64decode('eyIwMC0wMV/sgqzrnpHtlZjripRf7JiB7Zi87J2YX+qzhOyLnOyZgF/si6DshLHsnZhf7Z2Q66W064qUX+u5m+ydtOudvOuKlF/ssYXsnZhf7YOE7IOdLm1kIjoiOGMxNGRkZmI4NzUyOTJiYTY3YWRiNjRiOTdlNDU5YzYyNTFhZWQxMGEwZmRhNzkxNTRhNDZhOTBhM2E1MGNhZiIsIjAxLTAxX+yCrOuekeydmF/sl6zsnbjqs7xf7JiB7Zi87J2YX+unjOuCqF/sgqzrnpFf7IK87JyE7J287LK0X+yynOyDgV/shLjqs4QubWQiOiI2ODc1ZjA5YWMwNzAzOWYzZmQwYjRiMmYwZjk2N2I2ODdlNWZmNDZkYmFmNjI2NTQzMGFhMjFkZjNiZDg5YjdiIiwiMDEtMDJf7ZWY64qQ64uY7J2EX+yCrOueke2VmOuKlF/smIHtmLzsnZhf6ri4X+yLnOugqOydhF/sp4Drgphf64aS7J2AX+qzs+ycvOuhnC5tZCI6IjY0Y2MyYTE2NzJmM2NlNTVhNmUxMGI3ZGIyMDY2OTY3NTQ0MGU5MDQyODQ2YTFjN2I4NmMzNDg5ODQwMTY0YmMiLCIwMS0wM1/tlZjripDri5jqs7xf7JiB7Zi87J2YX+yDge2YuF/siJjsmqlf7Lmc6rWQX+ywrOuvuF/slY7qs7xf7Zal7JygLm1kIjoiZTk0Nzc0M2JjNWQ3ZDg3NjE4YWE0NGZjYzllOTE0YWY3OWU0YmNkZmE1OGY0NTM2NDY3Njc1ZTgzZjU4NzM0MSIsIjAxLTA0X+yEseuqqF/rjZVf6riw64+E7JmAX+qzoO2GtV/sgqzrnpFf65WM66y47JeQX+yekOycoOuhnOybjOyngOuKlF/smIHtmLwubWQiOiJmYjFhOTJlZDQ2ZmIwOThlYWNkOWNjNTgzZDJkOGU1NzAwNGJjMTE0YjViY2ZkOGRhNjBiNjZhMWY4ZGY0ODVmIiwiMDEtMDVf7Iug656R7J2YX+yVhOumhOuLpOybgOqzvF/qtJHslbzsnZhf6ri4X+yImOy5mF/snITroZxf6rOg64Kc7J2EX+2GteqzvO2VmOq4sC5tZCI6Ijg1NzMwNDY0NzAxN2UwYTA4NTM4YjEzYTQzYzdlNzgyYzVmMDk4MzNjYTc0MWJjZWU3N2FlYTkzZjAzYWMwYjUiLCIwMS0wNl/snYDstJ3qs7xf66eI7J2M7J2YX+uztO2ZlF/smIHtmLzsnZhf7J2R64u1X+q4sOyBqF/sgrzsnITsnbzssrTsmYBf7IKs656R7J2YX+q4uC5tZCI6ImJhYzgzNjc0MWU1NTU3NjUyMDI5MTE1ODQ5YTcxZWFkNmExYjlhNGJkMGQ1MWQ0YTY1N2M4NTk2ZGJhYzQwYzIiLCIwMi0wMV/sgqzrnpHsnbRf7JiB7Zi87J2EX+uGkuydtOuKlF/rsKnsi51f7J6Q6riw7J2Y7KeA6rCAX+yVhOuLiOudvF/sgqzrnpHsnLzroZwubWQiOiJlMWU0N2NjMWM1MjBhNGEwMGUzYTQ4ZmZjNDY5ZWI3YTkzMGJkZWQwYjMzN2ZhMWY5ZmIxMjc5MjQ5NmZiNGUzIiwiMDItMDJf6rOg7Ya16rO8X+yXsOyYpV/si6DrtoDsmYBf7Iug656R7J2YX+yDge2YuF/ssKzrr7gubWQiOiJlZWUxZGU1NGQwYTllZTcxN2Y2N2FjZDkzMjE3MTYzZTA4YWU4ZjAxNWJmOTEzYWViYjNhMGI3N2Q0OTRlYmI2IiwiMDItMDNf7IKs656R7J2YX+yXrOufrF/rqqjsirXqs7xf7JmE7KCE7ISxX+yInOyImO2VqF/sg4HsspjsmYBf7LmY7JygLm1kIjoiMzExZTVkNTA5NzZhNTU3MWM5ZmYxMjU0MWMzYWZjNzJjZjMyZmE5MzA1ZDNhOWQ4MTFmNTFhMTkwZmNiZTYxMCIsIjAyLTA0X+yYgeyggV/si53rs4Tqs7xf7LKc7IOB7J2YX+uztOyDgV/smIHtmLzsnbRf64aS7J2AX+yCsOydhF/rsJTrnbzrs7TripRf67KVLm1kIjoiZDYzNGVkNTMwOWQyNjA5YTFhNTRjM2IwY2UxYjdjZTAyY2I3MDg1MTM2ZTgzZjRhMGNiNTYwNGUwZTM1NTU5MSIsIjAyLTA1X+q0gOyDgeqzvF/sgqzrnpHsnZhf6rKw7ZWpX+qwgOyepV/rgq7snYBf7J246rCE7JeQ7IScX+yEuOudvO2VjOq5jOyngC5tZCI6IjZiNmNmNzBiMmIyZTE5ZDM0NTU5NDUwMmVjMTE3ZWM5M2FkYTAxMjFiNzUxNWQ1Zjg3MjEyYjc5ODllZTk2NTciLCIwMy0wMV/qsIjrp53tlZjripRf7JiB7Zi87J2YX+ywrOuvuOyZgF/tg4Tsi50ubWQiOiIzZTYyN2JhYmJkZDkxM2IwMTMwNTQ2MGE5ZTMxYmU3ZTUyMGQxYzlhZDU1MzU0NmNiNGViNmQ4MjIzODY1ZjY1IiwiMDMtMDJf7ZWY64qQ64uY7J2EX+yErOq4sOuKlF/quLhf7LC97KGw7J2YX+q4sOybkOqzvF/sgqzrnpHrsJvripRf7JiB7Zi87J2YX+yImOuCnC5tZCI6IjQyODRhMTM0MjM0ODk2MGRkM2E1NTYwZWMzNzYzNTZjYzY2OTA4MGJhYjU1ODc3YjYzOTI5ODJkZWM1NzhkNWIiLCIwMy0wM1/tlZjripDri5jqs7xf7JiB7Zi8X+yCrOydtOydmF/slYTrpoTri6Tsm4Bf7IKs656R7J2YX+yXrOufrF/tmJXtg5zsmYBf7KCV7ZmULm1kIjoiZjg0NjQzZDdkYTZhNDE1NTk1MGIyNWI2OThkNDJjYzUwNmE4YWE3MjYyODk1ODI2NmQ1MzMzMjk3YWZhMDg5MSIsIjAzLTA0X+yImOy5mOyZgF/qs6DrgpzsnYRf7KeA64KYX+yYgeyggV/soITtiKzsmYBf7J20X+yxheydhF/spp3slrjtlZjripRf7J2065OkLm1kIjoiMGI4ZDg2NDNjMDg4ZjE3ODFhZjEwOWZlYjgzZDhhOGE0ZDBlM2Y4ZGUwZmRjZDE0ZjhhMDI2NWQ5OTIwMTM2NyIsIjAzLTA1X+yngOyYpeqzvF/tlZjripDri5jsnZhf7J6Q67mEX+unkOuhnF/ri6TtlaBf7IiYX+yXhuuKlF/qsIjrp50ubWQiOiIzNTY3OTk1ZjM4NzgyNTg0NzlhOWQ1YWI3Y2QxMDVlMWM1NmI2NmViMDkyMjE5NWE0YjI2OGExZjljOTNmZDEwIiwiMDQtMDFf7Iic7IiY7ZWcX+yYge2YvOqzvF/so4TsnbjsnZhf7ZqM67O1X+uRkF/quLhf7ZqM6rCc7JmAX+2VmOuKkOuLmOydmF/shKDtg50ubWQiOiI1MmM2NDI1ZGE0NGI4NWVmMDY4YmE5YzVhYWY1ZTNiYjljN2I3MzQ5YTI0MmQ3ZWMyNjgzYzViN2ExNTM0YzFiIiwiMDQtMDJf7IKs656R7ZWY64qUX+yYge2YvOqzvF/smIjrsLBf7Z2s7IOdX+yCrOygnOyZgF/sl7DsmKUubWQiOiI1ZWVjNjdmMTQzMDA0Njg3YmNmMWI5OGY3NDMyZWJiZmEzNGJjYmRhZWE3NTEyNDQ0ZDZjNWU3NjQ0ZWY2MTIzIiwiMDQtMDNf7J20X+qzhOyLnOulvF/slrTrlrvqsoxf67Cb7JWE65Ok7J28X+qyg+yduOqwgF/siJzsiJjtlZxf7IKs656R6rO8X+2BsF/sgqzrnpEubWQiOiIzMzk2YTE1Y2M0ZWM5N2VkNTIyNjk2MGQ2OTI4OGQ2YmI2OWRmNGI3NzI5YTExMDEyNGEwOTc1YTA4Y2EwYWI2IiwiMDQtMDRf7JiB7KCBX+yduOqwhOqzvF/sgqzrnpHsnZhf7KeB66y0X+yEsV/rj4Trr7jri4jsvZTsmYBf7ISk6rWQ7J6QX+yImOuPhO2ajC5tZCI6IjIwNTE5NTZmOGE5YWNlMzAyOWM2OWM3Y2NmNDI0MmVmZDlmMzRiZjIyZmNiZTMwY2FmOTRhZjM0ZmNjNzE3YzciLCIwNC0wNV/sspzsg4HsnZhf6rSA6rO8X+yYge2YvOydmF/smIHsoJFf7ZiE7IS47JmAX+uCtOyEuF/siJjrj4TtmozsnZhf66+4656Y7JmAX+yiheunkC5tZCI6Ijk4YjM2ZmVmODNlZGNiNGNiMmZjZjY4Y2FlZjIyNDQ1ZDFkYjNjMTg1YzMwZDA1YmVmOTlhMDNjYjBkOGM0NTMiLCIwNS0wMV/shLhf6rCA7KeAX+2ajOqwnOyZgF/sgqzrnpHsnZhf7Z6YX+yekOq4sOydmOyngOulvF/rhJjslrRf7KCV7ZmU66GcLm1kIjoiZGE4ZmMwOWM0Mjk2NDVlMDZkNDdjNWNlZWY3YWE4YmQ5Mjg1YTU0ODZhMjExMzlmNTUwNzdkNjg4NTRhODJkOSIsIjA1LTAyX+yCvOychOydvOyytOulvF/ssKzrr7jtlZjripRf7JiB7Zi8X+yjhF/spJHrs7TsmYBf7ZWY64qQ64uY7J2YX+ydkeuLtS5tZCI6IjIwMjA0ZGVjZmQ1YmM0ZDEzYWRjMTc2N2QxNjNiNzZjMWE5Yzg2ZDIwZDJjYjI2YzIyMTYxOTAxNTExYzY5ZjQiLCIwNS0wM1/quLDrj4TsnZhf7Jyg7J216rO8X+yCrOygnOydmF/ssYXsnoRf7KKL7J2AX+yCrOygnOyZgF/rgpjsgZxf7IKs7KCcLm1kIjoiN2RiY2VkZWM4ZTgzZWE3N2E1NjAwMWM1ZDEzMWQwMmU5MTRlZTRiYzg5ODYyOTNjMmEwNmJiYzVmYWMzMGQ3YyIsIjA1LTA0X+yjhOqwgF/snbjqsITsnYRf65Kk7KuT64qUX+uwqeyLnV/si6ztjJDqs7xf7ZWY64qQ64uY7J2YX+yekOu5hC5tZCI6Ijk5NDNkMWU0M2VmYmVkMjM0OWFmNzM4MTNjMGUxMDJhNzljOTY5YTk4ZWQ1OWIyOTYzZGQ1YWMyN2U4NzI1YjEiLCIwNS0wNV/shLHrqqjsmYBf6re466as7Iqk64+EX+yynOq1reydmF/tlqXsnKDsmYBf7ZWY64qQ64uY7J2YX+yekOq4sF/ssKzrr7gubWQiOiJkZjM4ZmFmN2UyZDE0ODc3YzcxOWZkYTFkOTcxN2E4ZGE3ZTFhMTFkODUyMjk4NzUzNzhkZmQyMTJhMzMzMTNlIiwiMDUtMDZf7IKs656R7J2YX+2emOqzvF/rqZTtnojti7jtirjsnZhf66eI7KeA66eJX+q4uF/sspzsgqzsoIFf7IK2X+yjveydjOqzvF/rhbjrhYTsnZhf6riw64+ELm1kIjoiMjRkMTQ4Y2NhNTU3OWU1YzRiZGY0YjI1OTE2M2EzZTQ5YzVhOWFhMzZiNjlkZmM5ZjljNjYwYjM3YmZhYWM1YyIsIjA2LTAxX+yYgeyggV/sp4Drj4TsnpDsmYBf6rO164+Z7LK0X+q2jOychF/rtoTrs4Tqs7xf7ZS87KGw66y87JeQX+uMgO2VnF/sp5HssKkubWQiOiI2ZjNkMGI2ODU0YjQwZTFkNmFmNTcwODZjNWI5ZmYyOTZjYWIyODdkZmY0NjI0NjQxMDc4YTg0MGI5ZWI0Y2U4IiwiMDYtMDJf6riw64+E7JmAX+uvuOyCrF/rp5DslIDqs7xf7IiY7ZaJX+yYgeyggV/sg53tmZzsnYRf7KeA7YOx7ZWY64qUX+qyg+uTpC5tZCI6ImVlZWRiZTkxMjkxN2IzNDdiZjA4Yjk3MmMzOTk4MTQ0YWIxNDI2ZjFkNGYyZGUwM2JjYWI0ZDA3NDgxOWIzYWYiLCIwNi0wM1/sooXrp5Dsl5DshJxf7JiB7Zi87J2YX+uCtOuptOycvOuhnF/sgrzsnITsnbzssrRf7JWI7J2YX+yYge2YvOqzvF/rp4jsnYzsnZhf7ISx7LCwLm1kIjoiNDdlNDI3MGM3MTcwNzQwNjEwOTczZWU3M2Q0M2I0NmRkMzk5OGYxNzc3NTA2ZmVlMDgyMTBiNTg4OWYzNGE3MCIsIjA2LTA0X+yii+ydgF/snZjsp4DsmYBf7J6Q6riw7J2Y7KeAX+2VmOuKkOuLmOydmF/rp5DslIDqs7xf6re466as7Iqk64+E7J2YX+yDgeyymC5tZCI6IjY0ZTk3MmZhZDEzOWI4MzkyYzc3MDlhZWE1NmY5NmUxYTcwYjVlZDJjMzkxZDQwNTRjYmY4NThlOTgyMDNlYzUiLCIwNi0wNV/rtojtg4DripRf7IKs656RX+yjveydjOydhF/quLDslrXtlZjqs6Bf7Iug7KCBX+u2iOyXkF/rk6TslrTqsIDquLAubWQiOiIyYjNmMmE3OTBiY2NiMTBhOGJjZmViYTE4MTQzYzVhMmJiNGRiZWJhNjNjZGI1Zjc0NmQ0Mzg0NmU5NmRkMGI1IiwiMDYtMDZf6rOg7Ya17Jy866GcX+u5muyWtOyngOuKlF/smIHtmLxf7ZWY64qQ64uY6rO8X+yEseuqqOyZgF/shLHsnbjrk6TsnYRf64uu7JWE6rCA6riwLm1kIjoiM2VjMDRmZmZhZDY5ZWJjMmI0YjdhNTJlMGFkZmU3ODBhOTQ5NTRhMjExZGNkMDA5N2IxNGMxYmQ2MzJhMmJlYSIsIjA2LTA3X+ywrOuvuOyZgF/tg4Tsm5Bf7Iuc7ZeY6rO8X+2VmOuKkOuLmOydmF/snZHsi5xf7J20X+yxheydgF/slrTrlJTsl5DshJxf7Z2Y65+s7JmU64qU6rCALm1kIjoiZTgwNjM0ZWIyZTI1NjNiODcxNGZlMTkzNTY1NmU0YTI4Njg5NDVkNjQ0YjFkODRlYjJmZTk1ZjJjYzhjYWIxNCIsIjA3LTAxX+yImOuPhOqzteuPmeyytOydmF/snbzsg4Ff66qo65OgX+yLnOqwhOyXkF/tlZjripDri5jqs7xf7ZWY64KYX+uQmOyWtF/sgrTslYTqsIDquLAubWQiOiI3MzA5YjUzODM1YmMwZjI5MDc5MmViZjVjMTYwODg5ZGYzMThhYjdhZTk0NGI4MTkwZjU3Njk2Yjg4YmM0NTNjIiwiMDctMDJf66qo65OgX+2UvOyhsOusvOqzvF/tlajqu5jtlZjripRf7LCs66+4X+yduOqwhOydmF/rhbjrj5lf7IaN7Jy866GcX+yYpOyLoF/qt7jrpqzsiqTrj4QubWQiOiJlN2UzZjVhYzYwYzI2ODljZDA4NjMyY2NjZDIxMTc0ZTM1ZjI0MmE3NDhjZjUxMTBlNzEzY2RjMzA1OGY1OWRjIiwiMDctMDNf6riw64+E7JmAX+yEseuqqF/ssKzrr7hf7ZWY64qQ64uY6ruYX+uCmOyVhOqwgOq4sF/soITsl5Bf66eI7J2M7J2EX+yCtO2UvOq4sC5tZCI6ImQ2Y2IzYzY1MWM1ZTRjYWU0ZjczZTdhZDU4MTI4Yjc5ODUwNjdhOTk1MGI0OGI1YzU3MzcyNGVjNWQ5M2UwZDQiLCIwNy0wNF/shLHrtoDsmYBf7IK87JyE7J287LK07J2YX+ywrOuvuF/sgqzrnpHsnZhf7Iu47JuA6rO8X+ycoO2YuV/sho3sl5DshJxf7ZWY64qQ64uY6ruYX+2UvO2VmOq4sC5tZCI6ImQ1ODIyM2VhZDExZGNjMmZkYTdmYzZiYmJiNjE5MmJiNDI2N2Q1OTZkZWFiNGQ1NDFiMGRkZWJlOGE1MzNlMjYiLCIwNy0wNV/smIHsoIFf6rCA66W07Lmo6rO8X+yWkeyLnV/quLDrj4Rf7ISg7ZaJX+yYgeyggV/snYzro4zsmYBf7J2M7IudLm1kIjoiYzE5YzhiNWUyYmJiYzlhOTlhMDg3MjJmYzQ4YmY2NmRmNGY2ZTJhNWU2MTMzYTk1OTY5ZjkxZDJiYTY0YTc1ZSIsIjA3LTA2X+yYgeyggV/siJjrj4Tsm5Dsl5DshJxf7IKs656R7J2YX+uMgO2ZlOuhnF/tmozqsJxf7JWF7J2YX+qzteqyqeqzvF/ri6jsiJztlZxf7IKs656RLm1kIjoiY2Y4NDM3NzFkMTUxMzJiN2I1YjAzZDI5NTk0ZjdjYjM0N2FiMmQ4ZjYxYmFiYjFjYmM0OTU4NmQyODdhOTBmOCIsIjA3LTA3X+yjhOyZgF/rjZXsnYRf67aE67OE7ZWY6riwX+yCtuydmF/rs7jrs7TquLDsmYBf7ZWY64qQ64uY7J2YX+qzoO2GtS5tZCI6IjFhM2JjOWJhZGY3NjE1NTVjZWQxMmJiMWQ3MzM1OTdjNmQ0NGQ4MjliNWEyMzU2NTEyZTI3YjQ1Y2EzNDhhYWQiLCIwNy0wOF/smIHsoIFf7J246rCE7J2YX+yGjeuwleqzvF/tlbTrsKlf7IaM7ZmA7ZWoX+qzoO2GteqzvF/rgpnsm5AubWQiOiIyZjc4Nzc0ODM2ODk4OTljNWI4ZGRjOWE3OTVkNjU3ZGNlM2UyMGFmZmFiNDkxMTdhZGZlMThmMzk2NjM4ODdkIiwiMDctMDlf66eI7KeA66eJX+qzhOyLnF/tlZjripDri5jsnZhf7ISs6rmA6rO8X+qzoO2GteycvOuhnF/ri6jsnqXrkJjripRf7JiB7Zi8Lm1kIjoiZTIwZDgwNTc0MzM1ZTQ4Y2E0NGM4NDEzM2IxMWI1YzQ2M2JmMTQ1Mzc1NWJmMWUzOTI0NGVkNWY2NTQ3YTk0NiJ9'))
+          root = Path('/tmp/mechthild-package/books/christianity/mechthild/chapters')
+          files = sorted(root.glob('*.md'))
+          if len(files) != 44:
+              raise SystemExit(f'Expected 44 chapters, found {len(files)}')
+          actual_names = {p.name for p in files}
+          if actual_names != set(expected):
+              missing = sorted(set(expected) - actual_names)
+              extra = sorted(actual_names - set(expected))
+              raise SystemExit(f'Filename mismatch. missing={missing} extra={extra}')
+          for p in files:
+              got = hashlib.sha256(p.read_bytes()).hexdigest()
+              if got != expected[p.name]:
+                  raise SystemExit(f'Body hash mismatch: {p.name}')
+          print('Verified 44 byte-identical Markdown chapters.')
+          PY2
+
+      - name: Install publication without overwriting an existing book
         shell: bash
         run: |
           set -euo pipefail
           test ! -e 'books/christianity/mechthild'
-          test ! -e 'site/index.html'
-          test ! -e 'site/catalog.json'
-          test ! -e 'site/read'
-          test ! -e '.github/workflows/deploy-pages.yml'
-          tar -xJf /tmp/mechthild-webbooks-additions.tar.xz -C .
+          mkdir -p books/christianity
+          cp -a /tmp/mechthild-package/books/christianity/mechthild books/christianity/
+          test "$(find books/christianity/mechthild/chapters -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = '44'
 
-          test -f 'books/christianity/mechthild/book.yaml'
-          test -f 'books/christianity/mechthild/manifest.json'
-          test -f 'site/index.html'
-          test -f 'site/read/index.html'
-          test -f '.github/workflows/deploy-pages.yml'
-          count="$(find 'books/christianity/mechthild/chapters' -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')"
-          echo "Mechthild chapter files: $count"
-          test "$count" = '44'
+      - name: Add Mechthild reader and library entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p site/christianity/mechthild
+          cp site/recovery/aa/twelve-traditions/style.css site/christianity/mechthild/style.css
+          cp site/recovery/aa/twelve-traditions/app.js site/christianity/mechthild/app.js
+          cat > site/christianity/mechthild/index.html <<'HTML'
+          <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="메히틸트 폰 마그데부르크 『신성의 흐르는 빛』 해설"><title>메히틸트 폰 마그데부르크 『신성의 흐르는 빛』 해설</title><link rel="stylesheet" href="./style.css"><script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script></head><body><div id="progress"></div><header><button id="menu" aria-label="목차 열기">☰</button><a class="library-link" href="../../">Webbooks</a><div class="brand"><strong>『신성의 흐르는 빛』</strong><span>메히틸트 폰 마그데부르크 · 상세 해설</span></div><div class="right"><a href="./book.md">통합 MD</a><button id="theme" aria-label="테마 전환">◐</button></div></header><div class="layout"><aside><label class="search-label" for="search">목차 검색</label><input id="search" type="search" placeholder="예: 3.2, 사랑"><nav id="toc"></nav></aside><main><article id="content">웹북을 불러오는 중입니다…</article><nav class="pager"><button id="prev">← 이전</button><span id="pos"></span><button id="next">다음 →</button></nav></main></div><button id="top" aria-label="맨 위로">↑</button><script src="./app.js"></script></body></html>
+          HTML
+          cat > site/index.html <<'HTML'
+          <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="웹북 도서관"><title>Webbooks</title><link rel="stylesheet" href="./assets/library.css"></head><body><main class="library"><header><p class="eyebrow">WEBBOOK LIBRARY</p><h1>웹북 도서관</h1><p>연구·해설 프로젝트에서 완성된 원고를 읽기 좋은 웹북으로 제공합니다.</p></header><section><h2>기독교 · 신비주의</h2><a class="book" href="./christianity/mechthild/"><span class="meta">메히틸트 폰 마그데부르크 · 완결</span><strong>『신성의 흐르는 빛』 상세 해설</strong><span>0.1부터 7.9까지 순서대로 읽는 44편의 상세 해설.</span></a></section><section><h2>회복 · AA</h2><a class="book" href="./recovery/aa/twelve-traditions/"><span class="meta">AA 12단계·12전통 · 완결</span><strong>AA Twelve Traditions 상세 분석·해설</strong><span>Tradition One 1.1부터 Tradition Twelve 12.6, Long Form A.1~A.4까지.</span></a></section></main></body></html>
+          HTML
 
-      - name: Commit publication and remove transfer scaffolding
+      - name: Update Pages staging workflow for Mechthild
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .github/workflows/deploy-pages.yml <<'YAML'
+          name: Deploy webbooks to GitHub Pages
+
+          on:
+            push:
+              branches: [main]
+            workflow_dispatch:
+
+          permissions:
+            contents: read
+            pages: write
+            id-token: write
+
+          concurrency:
+            group: pages
+            cancel-in-progress: true
+
+          jobs:
+            deploy:
+              runs-on: ubuntu-latest
+              environment:
+                name: github-pages
+                url: ${{ steps.deployment.outputs.page_url }}
+              steps:
+                - name: Checkout
+                  uses: actions/checkout@v6
+                - name: Stage site
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    rm -rf _site
+                    cp -R site _site
+                    mkdir -p _site/recovery/aa/twelve-traditions
+                    cp books/recovery/aa/twelve-traditions/book.md _site/recovery/aa/twelve-traditions/book.md
+                    cp books/recovery/aa/twelve-traditions/book.yaml _site/recovery/aa/twelve-traditions/book.yaml
+                    test "$(sha256sum _site/recovery/aa/twelve-traditions/book.md | awk '{print $1}')" = "b4d64ad1899b1de37548283fefbb3f4dd99844d8603844e03e0d9bee645183c7"
+                    mkdir -p _site/christianity/mechthild
+                    : > _site/christianity/mechthild/book.md
+                    for f in books/christianity/mechthild/chapters/*.md; do
+                      cat "$f" >> _site/christianity/mechthild/book.md
+                      printf '%s\n' '' '---' '' >> _site/christianity/mechthild/book.md
+                    done
+                    cp books/christianity/mechthild/book.yaml _site/christianity/mechthild/book.yaml
+                    cp books/christianity/mechthild/manifest.json _site/christianity/mechthild/manifest.json
+                    test "$(find books/christianity/mechthild/chapters -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "44"
+                - name: Setup Pages
+                  uses: actions/configure-pages@v5
+                - name: Upload artifact
+                  uses: actions/upload-pages-artifact@v4
+                  with:
+                    path: _site
+                - name: Deploy
+                  id: deployment
+                  uses: actions/deploy-pages@v4
+          YAML
+
+      - name: Commit publication and remove temporary recovery scaffolding
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add 'books/christianity/mechthild'
-          git add 'site/index.html' 'site/catalog.json' 'site/read'
-          git add '.github/workflows/deploy-pages.yml'
-          git rm -r '.webbook-upload/mechthild'
-          git rm '.github/workflows/publish-mechthild-once.yml'
+          git add books/christianity/mechthild
+          git add site/index.html site/christianity/mechthild
+          git add .github/workflows/deploy-pages.yml
+          git rm -r .webbook-upload/mechthild
+          git rm .github/workflows/publish-mechthild-once.yml
           git commit -m 'Publish Mechthild webbook'
           git push origin HEAD:main
+
+      - name: Stage current site for immediate Pages deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          cp -R site _site
+          mkdir -p _site/recovery/aa/twelve-traditions
+          cp books/recovery/aa/twelve-traditions/book.md _site/recovery/aa/twelve-traditions/book.md
+          cp books/recovery/aa/twelve-traditions/book.yaml _site/recovery/aa/twelve-traditions/book.yaml
+          mkdir -p _site/christianity/mechthild
+          : > _site/christianity/mechthild/book.md
+          for f in books/christianity/mechthild/chapters/*.md; do
+            cat "$f" >> _site/christianity/mechthild/book.md
+            printf '%s\n' '' '---' '' >> _site/christianity/mechthild/book.md
+          done
+          cp books/christianity/mechthild/book.yaml _site/christianity/mechthild/book.yaml
+          cp books/christianity/mechthild/manifest.json _site/christianity/mechthild/manifest.json
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
