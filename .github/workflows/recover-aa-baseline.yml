@@ -1,4 +1,4 @@
-name: Recover AA baseline manifest
+name: Recover AA historical baseline manifest
 
 on:
   push:
@@ -16,59 +16,77 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Download retained source slices
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/aa-old
-          base='https://raw.githubusercontent.com/disnotons/GPT/main/.webbook-upload/aa-traditions-detailed'
-          for n in part-00.b64 part-01.b64 part-02.b64 part-03.b64 part-04.b64 part-05.b64 part-06.b64 part-07.b64 part-08.b64 part-04-new.b64 part-05-new.b64 part-06-new.b64; do
-            curl -fsSL "$base/$n" -o "/tmp/aa-old/$n"
-          done
-      - name: Extract candidates and build section manifests
+      - name: Explore retained historical source combinations
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import base64,bz2,io,tarfile,hashlib,shutil,json,re
-          root=Path('/tmp/aa-old')
-          out=Path('/tmp/aa-baselines'); out.mkdir(exist_ok=True)
-          sets=[
-            ['part-00.b64','part-01.b64','part-02.b64','part-03.b64','part-04.b64','part-05.b64','part-06.b64','part-07.b64','part-08.b64'],
-            ['part-00.b64','part-01.b64','part-02.b64','part-03.b64','part-04-new.b64','part-05-new.b64','part-06-new.b64','part-07.b64','part-08.b64'],
-          ]
-          def manifest(p):
-              b=p.read_bytes(); text=b.decode('utf-8')
-              lines=text.splitlines(keepends=True)
-              starts=[]
-              off=0
+          from itertools import product
+          import urllib.request,json,base64,bz2,io,tarfile,hashlib,re,tempfile,shutil
+          repo='disnotons/GPT'
+          path='.webbook-upload/aa-traditions-detailed'
+          variants={
+            'part-00.b64':['dffbf603','6c3d3e39'],
+            'part-01.b64':['d3d38793','464c41bf','f4782266'],
+            'part-02.b64':['eef28158','b3917da9'],
+            'part-03.b64':['86d54385','a4bb726f'],
+            'part-04.b64':['2bfae17d','7f565c87'],
+            'part-05.b64':['e449ae06','32a9f983'],
+            'part-06.b64':['d64e9b53','35f8af05'],
+            'part-07.b64':['78a2c4cd'],
+            'part-08.b64':['2c0b79e8'],
+          }
+          def get(url):
+              req=urllib.request.Request(url,headers={'User-Agent':'webbooks-recovery'})
+              with urllib.request.urlopen(req,timeout=30) as r: return r.read()
+          full={}
+          def resolve(short):
+              if short not in full:
+                  data=json.loads(get(f'https://api.github.com/repos/{repo}/commits/{short}'))
+                  full[short]=data['sha']
+              return full[short]
+          texts={}
+          for name,refs in variants.items():
+              texts[name]=[]
+              for ref in refs:
+                  sha=resolve(ref)
+                  raw=get(f'https://raw.githubusercontent.com/{repo}/{sha}/{path}/{name}').decode('ascii').strip()
+                  texts[name].append((ref,raw))
+                  print(name,ref,len(raw))
+          names=list(variants)
+          def section_manifest(b):
+              text=b.decode('utf-8'); lines=text.splitlines(keepends=True); starts=[]; off=0
               for line in lines:
+                  lb=line.encode('utf-8')
                   if line.startswith('## ') and re.search(r'(?:\d{1,2}\.\d+|A\.\d+)',line): starts.append((off,line.rstrip('\r\n')))
-                  off += len(line.encode('utf-8'))
-              parts=[]
-              boundaries=[x[0] for x in starts]+[len(b)]
-              pre=b[:boundaries[0]] if starts else b
+                  off += len(lb)
+              bounds=[x[0] for x in starts]+[len(b)]
+              pre=b[:bounds[0]] if starts else b
+              sections=[]
               for i,(pos,h) in enumerate(starts):
-                  chunk=b[pos:boundaries[i+1]]
-                  code=re.search(r'(?:\d{1,2}\.\d+|A\.\d+)',h).group(0)
-                  parts.append({'code':code,'heading':h,'size':len(chunk),'sha256':hashlib.sha256(chunk).hexdigest()})
-              return {'size':len(b),'sha256':hashlib.sha256(b).hexdigest(),'preamble_size':len(pre),'preamble_sha256':hashlib.sha256(pre).hexdigest(),'sections':parts}
-          result={}
-          for i,names in enumerate(sets,1):
+                  chunk=b[pos:bounds[i+1]]; code=re.search(r'(?:\d{1,2}\.\d+|A\.\d+)',h).group(0)
+                  sections.append({'code':code,'heading':h,'size':len(chunk),'sha256':hashlib.sha256(chunk).hexdigest()})
+              return {'size':len(b),'sha256':hashlib.sha256(b).hexdigest(),'preamble_size':len(pre),'preamble_sha256':hashlib.sha256(pre).hexdigest(),'sections':sections}
+          found={}
+          for combo in product(*[texts[n] for n in names]):
+              refs=[x[0] for x in combo]; encoded=''.join(x[1] for x in combo)
               try:
-                  enc=''.join((root/n).read_text() for n in names)
-                  raw=base64.b64decode(''.join(enc.split()),validate=True)
-                  tar=bz2.decompress(raw)
-                  d=out/f'candidate-{i}'; d.mkdir(exist_ok=True)
-                  with tarfile.open(fileobj=io.BytesIO(tar),mode='r:') as tf: tf.extractall(d,filter='data')
-                  m=list(d.rglob('AA_12전통_상세분석해설_전체통합본_친절한설명조.md'))
-                  if len(m)==1: result[f'candidate-{i}']=manifest(m[0])
-              except Exception as e:
-                  result[f'candidate-{i}']={'error':str(e)}
+                  raw=base64.b64decode(encoded,validate=True); tarbytes=bz2.decompress(raw)
+                  with tempfile.TemporaryDirectory() as td:
+                      with tarfile.open(fileobj=io.BytesIO(tarbytes),mode='r:') as tf: tf.extractall(td,filter='data')
+                      ms=list(Path(td).rglob('AA_12전통_상세분석해설_전체통합본_친절한설명조.md'))
+                      if len(ms)!=1: continue
+                      b=ms[0].read_bytes(); h=hashlib.sha256(b).hexdigest()
+                      if h not in found:
+                          found[h]={'combo':dict(zip(names,refs)),'manifest':section_manifest(b)}
+                          print('VALID',h,len(b),refs)
+              except Exception:
+                  pass
           Path('.webbook-debug').mkdir(exist_ok=True)
-          Path('.webbook-debug/aa-baseline-manifest.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-          print(json.dumps({k:{'size':v.get('size'),'sha256':v.get('sha256'),'sections':len(v.get('sections',[])),'error':v.get('error')} for k,v in result.items()},indent=2))
+          out={'valid_candidates':found,'count':len(found)}
+          Path('.webbook-debug/aa-baseline-manifest.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print('unique valid candidates:',len(found))
           PY
       - name: Commit manifest
         shell: bash
@@ -77,5 +95,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add .webbook-debug/aa-baseline-manifest.json
-          git commit -m 'Record AA baseline section manifest'
+          git commit -m 'Record AA historical baseline manifest'
           git push origin HEAD:main
