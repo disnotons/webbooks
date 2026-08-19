@@ -1,17 +1,14 @@
-name: Recover and publish Mechthild webbook once
+name: Publish verified Mechthild webbook once
 
 on:
-  push:
+  pull_request:
     branches: [main]
     paths:
-      - '.github/workflows/publish-mechthild-once.yml'
-      - '.webbook-upload/mechthild/.trigger'
+      - '.mechthild-pr-trigger'
   workflow_dispatch:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
   publish:
@@ -19,9 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
-      - name: Recover and verify current Mechthild source
+      - name: Recover existing transfer package
         shell: bash
         run: |
           set -euo pipefail
@@ -38,7 +36,8 @@ jobs:
               v = ord(ch) - 0x3400
               if not 0 <= v < 32768:
                   raise SystemExit('Invalid transfer character')
-              acc = (acc << 15) | v; nbits += 15
+              acc = (acc << 15) | v
+              nbits += 15
               while nbits >= 8:
                   nbits -= 8
                   out.append((acc >> nbits) & 0xff)
@@ -46,11 +45,22 @@ jobs:
           package = bytes(out[:414820])
           if hashlib.sha256(package).hexdigest() != '501111bed63f5cbcd9dc75c5baa47f0e4eafdcd6719cddd0f82fc269ca0f0231':
               raise SystemExit('Recovery package hash mismatch')
-          pkg = Path('/tmp/mechthild-package.tar.xz'); pkg.write_bytes(package)
-          dest = Path('/tmp/mechthild-package'); dest.mkdir(exist_ok=True)
+          pkg = Path('/tmp/mechthild-package.tar.xz')
+          pkg.write_bytes(package)
+          dest = Path('/tmp/mechthild-package')
+          dest.mkdir(exist_ok=True)
           with tarfile.open(pkg, 'r:xz') as tf:
               tf.extractall(dest)
-          root = dest / 'books/christianity/mechthild/chapters'
+          PY
+
+      - name: Verify current uploaded source byte-for-byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          root = Path('/tmp/mechthild-package/books/christianity/mechthild/chapters')
           files = sorted(root.glob('*.md'))
           if len(files) != 44:
               raise SystemExit(f'Expected 44 chapters, found {len(files)}')
@@ -60,117 +70,46 @@ jobs:
               h.update(p.read_bytes()); h.update(b'\0')
           expected = '571c2256bff1402ab9844e9d7e89bd5363d0f7568deebaba3dd031729de7deed'
           if h.hexdigest() != expected:
-              raise SystemExit('Current ZIP and recovered package do not match byte-for-byte')
-          print('Verified 44 byte-identical Markdown chapters.')
+              raise SystemExit('Recovered package differs from the current uploaded ZIP')
+          required = [
+              Path('/tmp/mechthild-package/books/christianity/mechthild/book.yaml'),
+              Path('/tmp/mechthild-package/books/christianity/mechthild/manifest.json'),
+              Path('/tmp/mechthild-package/site/christianity/mechthild/index.html'),
+              Path('/tmp/mechthild-package/site/christianity/mechthild/app.js'),
+              Path('/tmp/mechthild-package/site/christianity/mechthild/style.css'),
+              Path('/tmp/mechthild-package/site/christianity/mechthild/chapters.json'),
+              Path('/tmp/mechthild-package/site/index.html'),
+              Path('/tmp/mechthild-package/.github/workflows/deploy-pages.yml'),
+          ]
+          missing = [str(p) for p in required if not p.is_file()]
+          if missing:
+              raise SystemExit(f'Missing publication files: {missing}')
+          print('Verified: 44 byte-identical Markdown chapters and publication metadata/site.')
           PY
 
-      - name: Install book and reader without overwriting
+      - name: Install publication without touching existing books
         shell: bash
         run: |
           set -euo pipefail
           test ! -e books/christianity/mechthild
-          mkdir -p books/christianity site/christianity/mechthild
+          test ! -e site/christianity/mechthild
+          mkdir -p books/christianity site/christianity
           cp -a /tmp/mechthild-package/books/christianity/mechthild books/christianity/
-          cp site/recovery/aa/twelve-traditions/style.css site/christianity/mechthild/style.css
-          cp site/recovery/aa/twelve-traditions/app.js site/christianity/mechthild/app.js
-          cat > site/christianity/mechthild/index.html <<'HTML'
-          <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="메히틸트 폰 마그데부르크 『신성의 흐르는 빛』 해설"><title>메히틸트 폰 마그데부르크 『신성의 흐르는 빛』 해설</title><link rel="stylesheet" href="./style.css"><script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script></head><body><div id="progress"></div><header><button id="menu" aria-label="목차 열기">☰</button><a class="library-link" href="../../">Webbooks</a><div class="brand"><strong>『신성의 흐르는 빛』</strong><span>메히틸트 폰 마그데부르크 · 상세 해설</span></div><div class="right"><a href="./book.md">통합 MD</a><button id="theme" aria-label="테마 전환">◐</button></div></header><div class="layout"><aside><label class="search-label" for="search">목차 검색</label><input id="search" type="search" placeholder="예: 3.2, 사랑"><nav id="toc"></nav></aside><main><article id="content">웹북을 불러오는 중입니다…</article><nav class="pager"><button id="prev">← 이전</button><span id="pos"></span><button id="next">다음 →</button></nav></main></div><button id="top" aria-label="맨 위로">↑</button><script src="./app.js"></script></body></html>
-          HTML
-          cat > site/index.html <<'HTML'
-          <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="웹북 도서관"><title>Webbooks</title><link rel="stylesheet" href="./assets/library.css"></head><body><main class="library"><header><p class="eyebrow">WEBBOOK LIBRARY</p><h1>웹북 도서관</h1><p>연구·해설 프로젝트에서 완성된 원고를 읽기 좋은 웹북으로 제공합니다.</p></header><section><h2>기독교 · 신비주의</h2><a class="book" href="./christianity/mechthild/"><span class="meta">메히틸트 폰 마그데부르크 · 완결</span><strong>『신성의 흐르는 빛』 상세 해설</strong><span>0.1부터 7.9까지 순서대로 읽는 44편의 상세 해설.</span></a></section><section><h2>회복 · AA</h2><a class="book" href="./recovery/aa/twelve-traditions/"><span class="meta">AA 12단계·12전통 · 완결</span><strong>AA Twelve Traditions 상세 분석·해설</strong><span>Tradition One 1.1부터 Tradition Twelve 12.6, Long Form A.1~A.4까지.</span></a></section></main></body></html>
-          HTML
+          cp -a /tmp/mechthild-package/site/christianity/mechthild site/christianity/
+          cp /tmp/mechthild-package/site/index.html site/index.html
+          cp /tmp/mechthild-package/.github/workflows/deploy-pages.yml .github/workflows/deploy-pages.yml
+          test "$(find books/christianity/mechthild/chapters -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = 44
 
-      - name: Update reusable Pages workflow
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat > .github/workflows/deploy-pages.yml <<'YAML'
-          name: Deploy webbooks to GitHub Pages
-          on:
-            push:
-              branches: [main]
-            workflow_dispatch:
-          permissions:
-            contents: read
-            pages: write
-            id-token: write
-          concurrency:
-            group: pages
-            cancel-in-progress: true
-          jobs:
-            deploy:
-              runs-on: ubuntu-latest
-              environment:
-                name: github-pages
-                url: ${{ steps.deployment.outputs.page_url }}
-              steps:
-                - uses: actions/checkout@v6
-                - name: Stage site
-                  shell: bash
-                  run: |
-                    set -euo pipefail
-                    rm -rf _site; cp -R site _site
-                    mkdir -p _site/recovery/aa/twelve-traditions
-                    cp books/recovery/aa/twelve-traditions/book.md _site/recovery/aa/twelve-traditions/book.md
-                    cp books/recovery/aa/twelve-traditions/book.yaml _site/recovery/aa/twelve-traditions/book.yaml
-                    mkdir -p _site/christianity/mechthild
-                    : > _site/christianity/mechthild/book.md
-                    for f in books/christianity/mechthild/chapters/*.md; do
-                      cat "$f" >> _site/christianity/mechthild/book.md
-                      printf '%s\n' '' '---' '' >> _site/christianity/mechthild/book.md
-                    done
-                    cp books/christianity/mechthild/book.yaml _site/christianity/mechthild/book.yaml
-                    cp books/christianity/mechthild/manifest.json _site/christianity/mechthild/manifest.json
-                    test "$(find books/christianity/mechthild/chapters -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = 44
-                - uses: actions/configure-pages@v5
-                - uses: actions/upload-pages-artifact@v4
-                  with:
-                    path: _site
-                - id: deployment
-                  uses: actions/deploy-pages@v4
-          YAML
-
-      - name: Commit the complete publication in one commit
+      - name: Commit complete publication in one commit
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add books/christianity/mechthild site/index.html site/christianity/mechthild .github/workflows/deploy-pages.yml
+          git add books/christianity/mechthild
+          git add site/index.html site/christianity/mechthild
+          git add .github/workflows/deploy-pages.yml
           git rm -r .webbook-upload/mechthild
           git rm .github/workflows/publish-mechthild-once.yml
           git commit -m 'Publish Mechthild webbook'
           git push origin HEAD:main
-
-  deploy:
-    needs: publish
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: main
-      - name: Stage current site
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf _site; cp -R site _site
-          mkdir -p _site/recovery/aa/twelve-traditions
-          cp books/recovery/aa/twelve-traditions/book.md _site/recovery/aa/twelve-traditions/book.md
-          cp books/recovery/aa/twelve-traditions/book.yaml _site/recovery/aa/twelve-traditions/book.yaml
-          mkdir -p _site/christianity/mechthild
-          : > _site/christianity/mechthild/book.md
-          for f in books/christianity/mechthild/chapters/*.md; do
-            cat "$f" >> _site/christianity/mechthild/book.md
-            printf '%s\n' '' '---' '' >> _site/christianity/mechthild/book.md
-          done
-          cp books/christianity/mechthild/book.yaml _site/christianity/mechthild/book.yaml
-          cp books/christianity/mechthild/manifest.json _site/christianity/mechthild/manifest.json
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: _site
-      - id: deployment
-        uses: actions/deploy-pages@v4
