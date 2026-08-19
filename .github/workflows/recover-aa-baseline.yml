@@ -1,4 +1,4 @@
-name: Recover AA baseline artifact
+name: Recover AA baseline manifest
 
 on:
   push:
@@ -8,12 +8,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   recover:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
       - name: Download retained source slices
         shell: bash
         run: |
@@ -23,37 +25,57 @@ jobs:
           for n in part-00.b64 part-01.b64 part-02.b64 part-03.b64 part-04.b64 part-05.b64 part-06.b64 part-07.b64 part-08.b64 part-04-new.b64 part-05-new.b64 part-06-new.b64; do
             curl -fsSL "$base/$n" -o "/tmp/aa-old/$n"
           done
-      - name: Extract candidate integrated Markdown files
+      - name: Extract candidates and build section manifests
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import base64,bz2,io,tarfile,hashlib,shutil
+          import base64,bz2,io,tarfile,hashlib,shutil,json,re
           root=Path('/tmp/aa-old')
-          out=Path('/tmp/aa-baselines'); out.mkdir()
+          out=Path('/tmp/aa-baselines'); out.mkdir(exist_ok=True)
           sets=[
             ['part-00.b64','part-01.b64','part-02.b64','part-03.b64','part-04.b64','part-05.b64','part-06.b64','part-07.b64','part-08.b64'],
             ['part-00.b64','part-01.b64','part-02.b64','part-03.b64','part-04-new.b64','part-05-new.b64','part-06-new.b64','part-07.b64','part-08.b64'],
           ]
+          def manifest(p):
+              b=p.read_bytes(); text=b.decode('utf-8')
+              lines=text.splitlines(keepends=True)
+              starts=[]
+              off=0
+              for line in lines:
+                  if line.startswith('## ') and re.search(r'(?:\d{1,2}\.\d+|A\.\d+)',line): starts.append((off,line.rstrip('\r\n')))
+                  off += len(line.encode('utf-8'))
+              parts=[]
+              boundaries=[x[0] for x in starts]+[len(b)]
+              pre=b[:boundaries[0]] if starts else b
+              for i,(pos,h) in enumerate(starts):
+                  chunk=b[pos:boundaries[i+1]]
+                  code=re.search(r'(?:\d{1,2}\.\d+|A\.\d+)',h).group(0)
+                  parts.append({'code':code,'heading':h,'size':len(chunk),'sha256':hashlib.sha256(chunk).hexdigest()})
+              return {'size':len(b),'sha256':hashlib.sha256(b).hexdigest(),'preamble_size':len(pre),'preamble_sha256':hashlib.sha256(pre).hexdigest(),'sections':parts}
+          result={}
           for i,names in enumerate(sets,1):
               try:
                   enc=''.join((root/n).read_text() for n in names)
                   raw=base64.b64decode(''.join(enc.split()),validate=True)
                   tar=bz2.decompress(raw)
-                  d=out/f'candidate-{i}'; d.mkdir()
+                  d=out/f'candidate-{i}'; d.mkdir(exist_ok=True)
                   with tarfile.open(fileobj=io.BytesIO(tar),mode='r:') as tf: tf.extractall(d,filter='data')
                   m=list(d.rglob('AA_12전통_상세분석해설_전체통합본_친절한설명조.md'))
-                  if len(m)==1:
-                      dst=out/f'candidate-{i}.md'; shutil.copyfile(m[0],dst)
-                      print(i,len(dst.read_bytes()),hashlib.sha256(dst.read_bytes()).hexdigest())
+                  if len(m)==1: result[f'candidate-{i}']=manifest(m[0])
               except Exception as e:
-                  print('candidate',i,'failed:',e)
+                  result[f'candidate-{i}']={'error':str(e)}
+          Path('.webbook-debug').mkdir(exist_ok=True)
+          Path('.webbook-debug/aa-baseline-manifest.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps({k:{'size':v.get('size'),'sha256':v.get('sha256'),'sections':len(v.get('sections',[])),'error':v.get('error')} for k,v in result.items()},indent=2))
           PY
-          ls -l /tmp/aa-baselines/*.md
-      - name: Upload baselines
-        uses: actions/upload-artifact@v4
-        with:
-          name: aa-baselines
-          path: /tmp/aa-baselines/*.md
-          if-no-files-found: error
+      - name: Commit manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .webbook-debug/aa-baseline-manifest.json
+          git commit -m 'Record AA baseline section manifest'
+          git push origin HEAD:main
