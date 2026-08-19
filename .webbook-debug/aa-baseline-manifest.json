@@ -1,8 +1,4 @@
 {
-  "candidate-1": {
-    "error": "Incorrect padding"
-  },
-  "candidate-2": {
-    "error": "Invalid data stream"
-  }
+  "valid_candidates": {},
+  "count": 0
 }
