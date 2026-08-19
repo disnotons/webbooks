@@ -23,7 +23,7 @@ jobs:
           dir='.webbook-upload/aa-twelve-traditions'
           test -f "$dir/READY"
           count="$(find "$dir" -maxdepth 1 -name 'part-*.b64' | wc -l)"
-          test "$count" = '18'
+          test "$count" = '25'
           cat "$dir"/part-*.b64 | base64 -d | bzip2 -d > /tmp/book.md
           got="$(sha256sum /tmp/book.md | awk '{print $1}')"
           echo "source sha256: $got"
