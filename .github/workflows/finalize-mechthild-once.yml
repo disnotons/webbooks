@@ -5,7 +5,15 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/finalize-mechthild-once.yml'
+  pull_request_target:
+    branches: [main]
+    paths:
+      - '.finalize-mechthild-trigger'
   workflow_dispatch:
+
+concurrency:
+  group: finalize-mechthild-once
+  cancel-in-progress: false
 
 permissions:
   contents: write
