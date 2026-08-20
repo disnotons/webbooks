@@ -19,39 +19,62 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Download and verify exact 75-MD source package
+      - name: Recover and verify exact 75-MD source package from GitHub
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --quiet gdown
-          gdown '1kUnZMmIHhB0F0CfZ-WDnawr5w9jtsTwK' -O /tmp/aa-traditions.zip
-          unzip -t /tmp/aa-traditions.zip >/dev/null
-          rm -rf /tmp/aa-traditions-src
-          mkdir -p /tmp/aa-traditions-src
-          unzip -q /tmp/aa-traditions.zip -d /tmp/aa-traditions-src
+          stage=/tmp/aa-source-stage
+          rm -rf "$stage" /tmp/aa-traditions-src
+          mkdir -p "$stage" /tmp/aa-traditions-src
+          base='https://raw.githubusercontent.com/disnotons/GPT/main/.webbook-upload/aa-traditions-detailed'
+          for name in part-00.b64 part-01.b64 part-02.b64 part-03.b64 part-04.b64 part-05.b64 part-06.b64 part-07.b64 part-08.b64 part-04-new.b64 part-05-new.b64 part-06-new.b64; do
+            curl -fsSL "$base/$name" -o "$stage/$name"
+          done
           python - <<'PY'
           from pathlib import Path
-          import hashlib
+          import base64, bz2, hashlib, io, shutil, tarfile
 
+          stage = Path('/tmp/aa-source-stage')
           root = Path('/tmp/aa-traditions-src')
-          files = sorted(root.rglob('*.md'), key=lambda p: p.name.encode('utf-8'))
-          if len(files) != 75:
-              raise SystemExit(f'expected 75 Markdown files, got {len(files)}')
-          payload = b''.join(hashlib.sha256(p.read_bytes()).hexdigest().encode() + b'\n' for p in files)
-          package_digest = hashlib.sha256(payload).hexdigest()
+          candidates = [
+              ['part-00.b64','part-01.b64','part-02.b64','part-03.b64','part-04.b64','part-05.b64','part-06.b64','part-07.b64','part-08.b64'],
+              ['part-00.b64','part-01.b64','part-02.b64','part-03.b64','part-04-new.b64','part-05-new.b64','part-06-new.b64','part-07.b64','part-08.b64'],
+          ]
           expected_package = 'f924aacf39ebf5b78002a4a24921997483b93d3227cc0ea43606bd99a74c2b5a'
-          if package_digest != expected_package:
-              raise SystemExit(f'package digest mismatch: {package_digest}')
+          expected_book = 'b4d64ad1899b1de37548283fefbb3f4dd99844d8603844e03e0d9bee645183c7'
+          source = None
+          for idx, names in enumerate(candidates, 1):
+              out = root / f'candidate-{idx}'
+              shutil.rmtree(out, ignore_errors=True)
+              out.mkdir(parents=True)
+              try:
+                  encoded = ''.join((stage / name).read_text(encoding='ascii') for name in names)
+                  raw = base64.b64decode(''.join(encoded.split()), validate=True)
+                  tar_bytes = bz2.decompress(raw)
+                  with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode='r:') as tf:
+                      tf.extractall(out, filter='data')
+                  files = sorted(out.rglob('*.md'), key=lambda p: p.name.encode('utf-8'))
+                  if len(files) != 75:
+                      continue
+                  payload = b''.join(hashlib.sha256(p.read_bytes()).hexdigest().encode() + b'\n' for p in files)
+                  package_digest = hashlib.sha256(payload).hexdigest()
+                  print(f'candidate {idx} package digest: {package_digest}')
+                  if package_digest == expected_package:
+                      source = out
+                      break
+              except Exception as exc:
+                  print(f'candidate {idx} rejected: {exc}')
+          if source is None:
+              raise SystemExit('No GitHub source candidate matches the current uploaded 75-MD package.')
+          files = list(source.rglob('*.md'))
           integrated = [p for p in files if p.name == 'AA_12전통_상세분석해설_전체통합본_친절한설명조.md']
           if len(integrated) != 1:
               raise SystemExit(f'integrated source count: {len(integrated)}')
           book_hash = hashlib.sha256(integrated[0].read_bytes()).hexdigest()
-          expected_book = 'b4d64ad1899b1de37548283fefbb3f4dd99844d8603844e03e0d9bee645183c7'
           if book_hash != expected_book:
               raise SystemExit(f'book hash mismatch: {book_hash}')
           Path('/tmp/integrated-path').write_text(str(integrated[0]), encoding='utf-8')
-          print('verified source package:', package_digest)
-          print('verified book.md:', book_hash)
+          print('verified exact source package and integrated book')
           PY
           mkdir -p books/recovery/aa/twelve-traditions
           cp "$(cat /tmp/integrated-path)" books/recovery/aa/twelve-traditions/book.md
