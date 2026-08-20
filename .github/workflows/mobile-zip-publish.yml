@@ -132,7 +132,7 @@ jobs:
           git add -- books
           git rm -- "${ZIPS[@]}"
 
-          bad="$(git diff --cached --name-only | grep -Ev '^(books/|[^/]+\.zip$)' || true)"
+          bad="$(git -c core.quotepath=false diff --cached --name-only | grep -Ev '^(books/|[^/]+\.zip$)' || true)"
           if [ -n "$bad" ]; then
             echo 'Unexpected staged paths:'
             echo "$bad"
