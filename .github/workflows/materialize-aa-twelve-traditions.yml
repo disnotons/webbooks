@@ -1,10 +1,10 @@
 name: Materialize AA Twelve Traditions source (one-shot)
 
 on:
-  push:
+  pull_request:
     branches: [main]
     paths:
-      - '.github/workflows/materialize-aa-twelve-traditions.yml'
+      - '.aa-twelve-traditions-pr-trigger'
 
 permissions:
   contents: write
@@ -13,10 +13,11 @@ jobs:
   materialize:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout trigger commit
+      - name: Checkout current main
         uses: actions/checkout@v6
         with:
-          fetch-depth: 2
+          ref: main
+          fetch-depth: 0
 
       - name: Download and verify exact 75-MD source package
         shell: bash
@@ -56,16 +57,18 @@ jobs:
           cp "$(cat /tmp/integrated-path)" books/recovery/aa/twelve-traditions/book.md
           test "$(sha256sum books/recovery/aa/twelve-traditions/book.md | awk '{print $1}')" = 'b4d64ad1899b1de37548283fefbb3f4dd99844d8603844e03e0d9bee645183c7'
 
-      - name: Amend trigger commit into final single-file publication commit
+      - name: Replace temporary main history with one final publication commit
         shell: bash
         run: |
           set -euo pipefail
-          git checkout HEAD^ -- .github/workflows/materialize-aa-twelve-traditions.yml .github/workflows/deploy-pages.yml
+          base='e7bbedc7403e853b7b67fb5bbeffea9a5839a2d9'
+          git checkout "$base" -- .github/workflows/materialize-aa-twelve-traditions.yml .github/workflows/deploy-pages.yml
           git add books/recovery/aa/twelve-traditions/book.md
           git add .github/workflows/materialize-aa-twelve-traditions.yml .github/workflows/deploy-pages.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit --amend --no-edit
+          git reset --soft "$base"
+          git commit -m 'Publish AA Twelve Traditions exact source'
           changed="$(git diff --name-only HEAD^)"
           printf '%s\n' "$changed"
           test "$changed" = 'books/recovery/aa/twelve-traditions/book.md'
