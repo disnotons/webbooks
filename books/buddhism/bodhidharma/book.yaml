@@ -1,0 +1,12 @@
+title: "달마 대사님 전체 해설"
+category: "불교"
+collection: "선불교"
+series: "달마 대사님"
+description: "『二入四行觀(이입사행관)』과 후대 달마 귀속 전승문헌을 문헌층별로 구분하여 원문·번역·상세 해설·오해 방지·호킨스 박사님의 언어로 순차 해설하는 웹북."
+language: "ko"
+status: "ongoing"
+
+chapters:
+  - id: "10.1"
+    title: "10.1 『血脉論(혈맥론)』의 문헌적 위치"
+    file: "chapters/10-01_혈맥론의_문헌적_위치.md"
