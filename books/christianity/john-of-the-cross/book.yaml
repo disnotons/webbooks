@@ -19,3 +19,6 @@ chapters:
   - id: "1.3"
     title: "1.3 「아무것도 아닌 것(nada) — 모든 것을 버리라는 말의 진짜 뜻」"
     file: "chapters/01-03_아무것도_아닌_것_nada.md"
+  - id: "1.4"
+    title: "1.4 「감각의 능동적 밤 — 욕구를 따라가지 않는 훈련」"
+    file: "chapters/01-04_감각의_능동적_밤.md"
