@@ -1,0 +1,132 @@
+name: Publish AA GitBook once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-aa-gitbook-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout webbooks
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Checkout verified AA source history
+        uses: actions/checkout@v4
+        with:
+          repository: disnotons/GPT
+          ref: main
+          fetch-depth: 0
+          path: source-gpt
+
+      - name: Recover and verify exact source package
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd source-gpt
+            python .github/scripts/prepare_aa_traditions_source_v2.py
+          )
+          python - <<'PY'
+          from pathlib import Path
+          import base64, bz2, hashlib, io, shutil, tarfile
+          stage = Path('source-gpt/.webbook-upload/aa-traditions-detailed')
+          names = [f'part-{i:02d}.b64' for i in range(9)]
+          encoded = ''.join(''.join((stage / n).read_text(encoding='ascii').split()) for n in names)
+          raw = base64.b64decode(encoded, validate=True)
+          tar_bytes = bz2.decompress(raw)
+          root = Path('/tmp/aa-source')
+          shutil.rmtree(root, ignore_errors=True)
+          root.mkdir(parents=True)
+          with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode='r:') as tf:
+              tf.extractall(root, filter='data')
+          files = sorted(root.rglob('*.md'), key=lambda p: p.name.encode('utf-8'))
+          if len(files) != 75:
+              raise SystemExit(f'expected 75 Markdown files, got {len(files)}')
+          payload = b''.join(hashlib.sha256(p.read_bytes()).hexdigest().encode() + b'\n' for p in files)
+          got = hashlib.sha256(payload).hexdigest()
+          expected = 'f924aacf39ebf5b78002a4a24921997483b93d3227cc0ea43606bd99a74c2b5a'
+          if got != expected:
+              raise SystemExit(f'package digest mismatch: {got}')
+          print('verified package:', got)
+          PY
+
+      - name: Build GitBook tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re, shutil
+          source = Path('/tmp/aa-source')
+          out = Path('/tmp/gitbook-aa')
+          shutil.rmtree(out, ignore_errors=True)
+          chapters = out / 'chapters'
+          chapters.mkdir(parents=True)
+          rx = re.compile(r'^AA_12전통_상세분석해설_((?:\d+)|A)\.(\d+)_(.+)_친절한설명조\.md$')
+          items = []
+          for p in source.rglob('*.md'):
+              m = rx.match(p.name)
+              if not m:
+                  continue
+              major, minor, slug = m.groups()
+              text = p.read_text(encoding='utf-8')
+              h1 = next((line[2:].strip() for line in text.splitlines() if line.startswith('# ')), f'{major}.{minor} {slug.replace("_", " ")}')
+              if major == 'A':
+                  dest = f'A-{int(minor):02d}_{slug}.md'
+                  key = (99, int(minor))
+              else:
+                  dest = f'{int(major):02d}-{int(minor):02d}_{slug}.md'
+                  key = (int(major), int(minor))
+              (chapters / dest).write_bytes(p.read_bytes())
+              items.append((key, major, int(minor), h1, dest))
+          items.sort(key=lambda x: x[0])
+          if len(items) != 74:
+              raise SystemExit(f'expected 74 chapters, got {len(items)}')
+          (out / '.gitbook.yaml').write_text('root: ./\n\nstructure:\n  readme: README.md\n  summary: SUMMARY.md\n', encoding='utf-8')
+          (out / 'README.md').write_text('# AA 12전통 상세분석해설\n\nTradition One 1.1부터 Tradition Twelve 12.6까지의 상세 해설과 Long Form A.1~A.4입니다.\n\n- 본문 74개\n- 원본 본문 변경 없음\n', encoding='utf-8')
+          lines = ['# Summary', '', '* [AA 12전통 상세분석해설](README.md)', '']
+          current = None
+          for _, major, minor, h1, dest in items:
+              if major != current:
+                  if current is not None:
+                      lines.append('')
+                  lines += [('## 부록 — Long Form' if major == 'A' else f'## Tradition {major}'), '']
+                  current = major
+              lines.append(f'* [{h1}](chapters/{dest})')
+          lines.append('')
+          (out / 'SUMMARY.md').write_text('\n'.join(lines), encoding='utf-8')
+          print('prepared chapters:', len(items))
+          PY
+
+      - name: Publish clean GitBook branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch --orphan gitbook-aa-build
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/gitbook-aa/. .
+          test "$(find chapters -type f -name '*.md' | wc -l)" = '74'
+          git add -- .gitbook.yaml README.md SUMMARY.md chapters
+          git commit -m 'Publish AA Twelve Traditions for GitBook'
+          git push --force origin HEAD:gitbook-aa
+
+      - name: Remove one-time workflow from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch main
+          git pull --ff-only origin main
+          git rm .github/workflows/publish-aa-gitbook-once.yml
+          git commit -m 'Remove one-time AA GitBook publisher'
+          git push origin main
