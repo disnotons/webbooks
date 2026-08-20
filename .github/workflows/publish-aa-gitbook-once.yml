@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.gitbook-aa-run'
+      - '.aa-transfer/**'
 
 permissions:
   contents: write
@@ -13,94 +14,31 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout webbooks
+      - name: Checkout publication package from PR head
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      - name: Download and verify exact 75-MD source package
+      - name: Reassemble and verify prepared GitBook package
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --quiet gdown
-          gdown '1kUnZMmIHhB0F0CfZ-WDnawr5w9jtsTwK' -O /tmp/aa-traditions.zip
-          unzip -t /tmp/aa-traditions.zip >/dev/null
-          rm -rf /tmp/aa-source
-          mkdir -p /tmp/aa-source
-          unzip -q /tmp/aa-traditions.zip -d /tmp/aa-source
-          python - <<'PY'
-          from pathlib import Path
-          import hashlib
-          root = Path('/tmp/aa-source')
-          files = sorted(root.rglob('*.md'), key=lambda p: p.name.encode('utf-8'))
-          if len(files) != 75:
-              raise SystemExit(f'expected 75 Markdown files, got {len(files)}')
-          payload = b''.join(hashlib.sha256(p.read_bytes()).hexdigest().encode() + b'\n' for p in files)
-          got = hashlib.sha256(payload).hexdigest()
-          expected = 'f924aacf39ebf5b78002a4a24921997483b93d3227cc0ea43606bd99a74c2b5a'
-          if got != expected:
-              raise SystemExit(f'package digest mismatch: {got}')
-          integrated = [p for p in files if p.name == 'AA_12전통_상세분석해설_전체통합본_친절한설명조.md']
-          if len(integrated) != 1:
-              raise SystemExit(f'integrated source count: {len(integrated)}')
-          book_hash = hashlib.sha256(integrated[0].read_bytes()).hexdigest()
-          expected_book = 'b4d64ad1899b1de37548283fefbb3f4dd99844d8603844e03e0d9bee645183c7'
-          if book_hash != expected_book:
-              raise SystemExit(f'integrated book hash mismatch: {book_hash}')
-          print('verified package:', got)
-          print('verified integrated book:', book_hash)
-          PY
+          test "$(find .aa-transfer -maxdepth 1 -name 'part-*.b64' | wc -l)" = '16'
+          cat .aa-transfer/part-*.b64 | base64 -d > /tmp/aa-gitbook.tar.bz2
+          got="$(sha256sum /tmp/aa-gitbook.tar.bz2 | awk '{print $1}')"
+          expected='352fa8dd18cd8e858ac96383bf10f657daa4027dc81c5413b8945996b83563f3'
+          echo "package sha256: $got"
+          test "$got" = "$expected"
+          rm -rf /tmp/gitbook-aa
+          mkdir -p /tmp/gitbook-aa
+          tar -xjf /tmp/aa-gitbook.tar.bz2 -C /tmp/gitbook-aa
+          test -f /tmp/gitbook-aa/.gitbook.yaml
+          test -f /tmp/gitbook-aa/README.md
+          test -f /tmp/gitbook-aa/SUMMARY.md
+          test "$(find /tmp/gitbook-aa/chapters -type f -name '*.md' | wc -l)" = '74'
 
-      - name: Build GitBook tree
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-          import re, shutil
-          source = Path('/tmp/aa-source')
-          out = Path('/tmp/gitbook-aa')
-          shutil.rmtree(out, ignore_errors=True)
-          chapters = out / 'chapters'
-          chapters.mkdir(parents=True)
-          rx = re.compile(r'^AA_12전통_상세분석해설_((?:\d+)|A)\.(\d+)_(.+)_친절한설명조\.md$')
-          items = []
-          for p in source.rglob('*.md'):
-              m = rx.match(p.name)
-              if not m:
-                  continue
-              major, minor, slug = m.groups()
-              text = p.read_text(encoding='utf-8')
-              h1 = next((line[2:].strip() for line in text.splitlines() if line.startswith('# ')), f'{major}.{minor} {slug.replace("_", " ")}')
-              if major == 'A':
-                  dest = f'A-{int(minor):02d}_{slug}.md'
-                  key = (99, int(minor))
-              else:
-                  dest = f'{int(major):02d}-{int(minor):02d}_{slug}.md'
-                  key = (int(major), int(minor))
-              (chapters / dest).write_bytes(p.read_bytes())
-              items.append((key, major, int(minor), h1, dest))
-          items.sort(key=lambda x: x[0])
-          if len(items) != 74:
-              raise SystemExit(f'expected 74 chapters, got {len(items)}')
-          (out / '.gitbook.yaml').write_text('root: ./\n\nstructure:\n  readme: README.md\n  summary: SUMMARY.md\n', encoding='utf-8')
-          (out / 'README.md').write_text('# AA 12전통 상세분석해설\n\nTradition One 1.1부터 Tradition Twelve 12.6까지의 상세 해설과 Long Form A.1~A.4입니다.\n\n- 본문 74개\n- 원본 본문 변경 없음\n', encoding='utf-8')
-          lines = ['# Summary', '', '* [AA 12전통 상세분석해설](README.md)', '']
-          current = None
-          for _, major, minor, h1, dest in items:
-              if major != current:
-                  if current is not None:
-                      lines.append('')
-                  lines += [('## 부록 — Long Form' if major == 'A' else f'## Tradition {major}'), '']
-                  current = major
-              lines.append(f'* [{h1}](chapters/{dest})')
-          lines.append('')
-          (out / 'SUMMARY.md').write_text('\n'.join(lines), encoding='utf-8')
-          print('prepared chapters:', len(items))
-          PY
-
-      - name: Publish clean GitBook branch
+      - name: Publish clean one-commit GitBook branch
         shell: bash
         run: |
           set -euo pipefail
