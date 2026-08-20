@@ -13,3 +13,6 @@ chapters:
   - id: "1.1"
     title: "1.1 「카르멜산을 오른다는 것 — 합일을 향한 전체 여정」"
     file: "chapters/01-01_카르멜산을_오른다는_것.md"
+  - id: "1.2"
+    title: "1.2 「욕구(appetite)는 왜 영혼을 붙잡는가」"
+    file: "chapters/01-02_욕구는_왜_영혼을_붙잡는가.md"
