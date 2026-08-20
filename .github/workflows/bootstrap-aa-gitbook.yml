@@ -1,3 +1,4 @@
+# bootstrap trigger 2
 name: Bootstrap AA GitBook publication
 
 on:
@@ -89,7 +90,6 @@ jobs:
               else:
                   dest_name = f'{int(major):02d}-{int(minor):02d}_{slug}.md'
                   sort_key = (int(major), int(minor))
-              # Copy bytes exactly; only the publication filename changes.
               (chapters / dest_name).write_bytes(p.read_bytes())
               items.append((sort_key, major, int(minor), h1, dest_name))
 
