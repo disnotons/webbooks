@@ -1,0 +1,152 @@
+name: Publish webbook ZIP from mobile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.zip'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-webbook-zip-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout uploaded ZIP commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+
+      - name: Validate and unpack prepared webbook ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path, PurePosixPath
+          import stat
+          import subprocess
+          import zipfile
+
+          repo = Path.cwd()
+          changed = subprocess.check_output([
+              'git', 'diff-tree', '--no-commit-id', '--name-only', '-r', '--root', 'HEAD', '--', '*.zip'
+          ], text=True).splitlines()
+          zip_names = [n for n in changed if n.endswith('.zip') and '/' not in n and (repo / n).is_file()]
+          if not zip_names:
+              print('No newly uploaded root ZIP found; nothing to do.')
+              raise SystemExit(0)
+
+          payloads: dict[PurePosixPath, bytes] = {}
+          max_files = 5000
+          max_uncompressed = 500 * 1024 * 1024
+          file_count = 0
+          total_size = 0
+
+          for zip_name in zip_names:
+              print(f'Checking {zip_name}')
+              with zipfile.ZipFile(repo / zip_name) as zf:
+                  for info in zf.infolist():
+                      if info.is_dir():
+                          continue
+                      file_count += 1
+                      total_size += info.file_size
+                      if file_count > max_files:
+                          raise SystemExit(f'Too many files in upload: {file_count}')
+                      if total_size > max_uncompressed:
+                          raise SystemExit('Uncompressed ZIP payload is too large.')
+
+                      raw = info.filename
+                      if '\\' in raw:
+                          raise SystemExit(f'Unsafe ZIP path separator: {raw}')
+                      rel = PurePosixPath(raw)
+                      if rel.is_absolute() or not rel.parts or '..' in rel.parts:
+                          raise SystemExit(f'Unsafe ZIP path: {raw}')
+                      if rel.parts[0] != 'books':
+                          raise SystemExit(f'ZIP may contain only books/** files: {raw}')
+                      if '.git' in rel.parts or '.github' in rel.parts:
+                          raise SystemExit(f'Forbidden ZIP path: {raw}')
+
+                      unix_mode = info.external_attr >> 16
+                      if unix_mode and stat.S_ISLNK(unix_mode):
+                          raise SystemExit(f'Symlinks are not allowed: {raw}')
+
+                      data = zf.read(info)
+                      previous = payloads.get(rel)
+                      if previous is not None and previous != data:
+                          raise SystemExit(f'Different files map to the same path: {rel}')
+                      payloads[rel] = data
+
+          if not payloads:
+              raise SystemExit('ZIP contains no files.')
+
+          gitbook_roots = {p.parent for p in payloads if p.name == '.gitbook.yaml'}
+          if not gitbook_roots:
+              raise SystemExit('Prepared ZIP must include books/**/.gitbook.yaml')
+          for root in gitbook_roots:
+              for required in ('README.md', 'SUMMARY.md', '.gitbook.yaml'):
+                  if root / required not in payloads:
+                      raise SystemExit(f'Missing {root / required} in prepared ZIP')
+
+          replaceable_metadata = {'README.md', 'SUMMARY.md', '.gitbook.yaml', 'book.yaml'}
+          conflicts = []
+          for rel, data in payloads.items():
+              dst = repo.joinpath(*rel.parts)
+              if dst.exists() and dst.read_bytes() != data and rel.name not in replaceable_metadata:
+                  conflicts.append(str(rel))
+
+          if conflicts:
+              print('Refusing to overwrite existing publication content with different bytes:')
+              for path in conflicts[:100]:
+                  print(f'  - {path}')
+              if len(conflicts) > 100:
+                  print(f'  ... and {len(conflicts) - 100} more')
+              raise SystemExit(2)
+
+          for rel, data in payloads.items():
+              dst = repo.joinpath(*rel.parts)
+              if dst.exists() and dst.read_bytes() == data:
+                  continue
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              dst.write_bytes(data)
+              print(f'Prepared: {rel}')
+
+          print(f'Validated {len(payloads)} files from {len(zip_names)} ZIP file(s).')
+          PY
+
+      - name: Commit unpacked books and remove upload ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t ZIPS < <(git diff-tree --no-commit-id --name-only -r --root HEAD -- '*.zip' | awk '!/\// && /\.zip$/')
+          if [ "${#ZIPS[@]}" -eq 0 ]; then
+            echo 'No root ZIP to remove.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- books
+          git rm -- "${ZIPS[@]}"
+
+          bad="$(git diff --cached --name-only | grep -Ev '^(books/|[^/]+\.zip$)' || true)"
+          if [ -n "$bad" ]; then
+            echo 'Unexpected staged paths:'
+            echo "$bad"
+            exit 3
+          fi
+
+          if git diff --cached --quiet; then
+            echo 'No publication changes.'
+            exit 0
+          fi
+
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          git commit -m 'Publish prepared webbook ZIP from mobile'
+          git push origin HEAD:main
