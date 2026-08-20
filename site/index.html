@@ -3,14 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>웹북 도서관</title>
   <link rel="stylesheet" href="style.css">
+  <script defer src="library.js"></script>
 </head>
 <body>
-  <main>
-    <h1>웹북 도서관</h1>
-    <p>저장소가 새 고속 발행 공정용 빈 상태로 초기화되었습니다.</p>
-    <p>웹북이 발행되면 이 사이트에서 열람할 수 있습니다.</p>
+  <header class="library-header">
+    <div class="library-header-inner">
+      <div>
+        <p class="eyebrow">WEBBOOK LIBRARY</p>
+        <h1>웹북 도서관</h1>
+        <p class="library-intro">Markdown 원고를 그대로 보존하면서 읽기 좋은 웹북으로 제공합니다.</p>
+      </div>
+      <button class="icon-button" id="themeToggle" type="button" aria-label="화면 테마 전환">◐</button>
+    </div>
+  </header>
+
+  <main class="library-main">
+    <label class="search-box">
+      <span class="sr-only">웹북 검색</span>
+      <input id="librarySearch" type="search" placeholder="책 제목·분야·시리즈 검색" autocomplete="off">
+    </label>
+    <p class="muted" id="libraryStatus">웹북 목록을 불러오는 중입니다.</p>
+    <div id="librarySections"></div>
   </main>
 </body>
 </html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{{BOOK_TITLE}}</title>
+  <link rel="stylesheet" href="{{ROOT}}style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script defer src="{{ROOT}}reader.js"></script>
+</head>
+<body class="reader-page" data-book-path="{{BOOK_PATH}}">
+  <div class="reading-progress" id="readingProgress"></div>
+
+  <header class="reader-topbar">
+    <button class="icon-button mobile-only" id="menuToggle" type="button" aria-label="목차 열기">☰</button>
+    <a class="library-link" id="libraryLink" href="{{ROOT}}">웹북 도서관</a>
+    <div class="reader-actions">
+      <button class="icon-button" id="shareButton" type="button" aria-label="현재 페이지 공유">↗</button>
+      <button class="icon-button" id="themeToggle" type="button" aria-label="화면 테마 전환">◐</button>
+    </div>
+  </header>
+
+  <div class="reader-layout">
+    <aside class="toc-panel" id="tocPanel">
+      <div class="toc-heading">
+        <p class="eyebrow" id="bookCategory"></p>
+        <h1 id="bookTitle">불러오는 중…</h1>
+        <p class="book-description" id="bookDescription"></p>
+      </div>
+      <label class="search-box compact">
+        <span class="sr-only">목차 검색</span>
+        <input id="tocSearch" type="search" placeholder="목차 검색" autocomplete="off">
+      </label>
+      <nav id="toc" aria-label="전체 목차"></nav>
+    </aside>
+
+    <main class="reader-main">
+      <div class="chapter-meta" id="chapterMeta"></div>
+      <article class="markdown-body" id="chapterContent">
+        <p>본문을 불러오는 중입니다.</p>
+      </article>
+
+      <nav class="chapter-nav" aria-label="이전 다음 문서">
+        <button id="prevChapter" type="button">← 이전</button>
+        <button id="nextChapter" type="button">다음 →</button>
+      </nav>
+    </main>
+  </div>
+
+  <button class="top-button" id="topButton" type="button" aria-label="페이지 맨 위로">↑</button>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
