@@ -1,42 +1,86 @@
 # FAST_PUBLISH_PROTOCOL.md
 
-이 문서는 `disnotons/webbooks` 저장소의 고속 발행 운영 규칙이다. `WEBBOOK_STANDARD.md`와 충돌하면 사용자 최신 지시와 `WEBBOOK_STANDARD.md`의 우선순위를 따른다.
+이 문서는 `disnotons/webbooks` 저장소의 고속 웹북 발행 운영 규칙이다.
 
 ## 사용자가 `발행`이라고 하면
 
-ZIP 또는 Markdown 입력을 **한 책 단위의 묶음 작업**으로 처리한다.
+ZIP 또는 Markdown 입력을 한 책 단위로 처리한다.
 
-1. 입력을 로컬 작업공간에서 한 번만 해제·확인한다.
-2. 원본 MD 본문은 수정하지 않는다.
-3. 공식 번호 → H1 → 확정 목차 → 기존 파일명 순으로 발행 파일명을 결정한다.
-4. 발행용 복사본과 `book.yaml`을 한 번에 만든다.
-5. 기존 GitHub 경로와 파일명을 확인하여 충돌을 막는다.
-6. 모든 새 파일을 GitHub Git tree로 묶어 **한 커밋**으로 반영한다.
-7. main 반영 후 Pages 배포를 한 번만 확인한다.
-8. 새 책이면 Notion 도서관에 등록한다. 기존 책에 장만 추가한 경우 URL이 그대로면 Notion은 건드리지 않는다.
-9. Drive에는 책/릴리스 단위 ZIP 또는 폴더로 백업한다.
-
-## 금지
-
-기술적으로 불가피하지 않은 한 다음은 하지 않는다.
-
-- 파일마다 별도 커밋
-- ZIP을 수십 개 텍스트 조각으로 변환해 GitHub에 올린 뒤 재조립
-- 발행할 때마다 원문 전체 재정제
-- 기존 공개 URL 변경
-- 동일 파일명 자동 덮어쓰기
-- 장 추가 때마다 Notion 재등록
+1. 입력을 로컬 작업공간에서 한 번만 해제·수집한다.
+2. 원본 Markdown 본문은 수정하지 않는다.
+3. 공식 번호 → 첫 H1 → 확정 목차 → 기존 파일명 순으로 발행 파일명을 결정한다.
+4. 발행용 복사본과 `book.yaml`을 로컬에서 한 번에 만든다.
+5. 기존 GitHub 경로와 파일 충돌을 확인한다.
+6. 새 MD와 `book.yaml`을 하나의 Git tree로 구성한다.
+7. 하나의 commit을 만들고 `main` ref를 갱신한다.
+8. Pages 배포를 한 번 확인한다.
+9. 새 책이면 Notion 도서관에 한 번 등록한다. 기존 공개 URL이 유지되면 Notion은 다시 수정하지 않는다.
+10. Drive 백업은 필요할 때 책 폴더 또는 릴리스 ZIP 단위로 처리하며 GitHub 발행을 지연시키지 않는다.
 
 ## GitHub 반영 방식
 
-대량 파일은 Contents API의 파일별 반복 쓰기보다 Git Data API의 `blob → tree → commit → ref` 흐름을 우선한다. 파일 수가 많아도 최종 반영은 한 커밋으로 만든다.
+정상 발행은 다음 흐름만 사용한다.
+
+```text
+로컬 준비
+→ create_tree
+→ create_commit
+→ update_ref(main)
+→ Pages
+```
+
+가능하면 `create_tree`에 파일 내용을 직접 포함한다. 필요할 때만 `create_blob`을 사용한다.
+
+**책 하나 = commit 하나**를 기본으로 한다.
+
+## 금지
+
+정상 발행에서 다음을 사용하지 않는다.
+
+- 파일마다 `create_file` 또는 `update_file`
+- 파일마다 별도 commit
+- `.webbook-upload` 전송 폴더
+- base64·텍스트·유니코드 조각 분할 전송
+- GitHub Actions에서 데이터 재조립
+- recovery / materialize / one-shot publish workflow
+- trigger용 branch·PR·commit
+- 검증을 위한 반복 commit
+- Actions에서 `main` 강제 재작성
+
+GitHub Actions는 사이트 빌드와 Pages 배포에만 사용한다.
+
+## 저장소 청결 규칙
+
+정상 상태의 저장소에는 다음이 없어야 한다.
+
+```text
+.webbook-upload/
+.webbook-debug/
+recovery 전용 데이터 폴더
+책별 일회성 workflow
+trigger 전용 파일·브랜치에 의존하는 발행 구조
+```
+
+`books/`에는 실제 발행 데이터만 둔다.
+
+## 실패 시
+
+전체 공정을 처음부터 반복하지 않는다.
+
+- 로컬 준비 실패 → 로컬 준비만 수정
+- tree 실패 → tree 입력만 수정
+- commit 실패 → commit 단계만 수정
+- Pages 실패 → Pages만 확인
+
+이미 성공한 단계를 위해 새 trigger commit을 만들지 않는다.
 
 ## 완료 기준
 
-다음이 확인되어야 발행 완료로 본다.
-
-- 발행 파일 수와 원본 대상 파일 수가 맞음
-- `book.yaml`의 순서와 실제 파일이 일치함
+- 대상 MD 수와 발행 MD 수가 일치함
+- 원본 본문이 변경되지 않음
+- `book.yaml`과 실제 파일 순서가 일치함
 - 기존 파일을 의도치 않게 덮어쓰지 않음
-- 공개 URL이 열림
-- 새 책의 경우에만 Notion 도서관 링크가 추가됨
+- 책 단위 단일 commit이 `main`에 반영됨
+- Pages 배포 성공
+- 공개 URL 열림
+- 새 책인 경우에만 Notion 도서관 등록

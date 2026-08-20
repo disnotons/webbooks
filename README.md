@@ -1,55 +1,37 @@
-# Webbooks
+# webbooks
 
-웹북 전용 통합 저장소입니다.
+웹북 발행 전용 저장소입니다.
 
-이 저장소는 여러 연구·해설 프로젝트에서 제작된 Markdown 원고를 **발행용 구조로 정규화하여 관리하고 웹북으로 출판하기 위한 전용 저장소**입니다.
+이 저장소는 **원본 Markdown을 편집하는 곳이 아니라 발행용 복사본을 관리하는 곳**입니다.
 
-## 기본 원칙
+## 고속 발행 흐름
 
-- 원본 Markdown은 수정하지 않습니다.
-- 발행용 복사본의 파일명·폴더·메타데이터만 표준화합니다.
-- 기존 공개 URL과 기존 발행본을 우선 보호합니다.
-- 책마다 별도 저장소를 만들지 않고 이 저장소 안에서 통합 관리합니다.
-- Markdown 콘텐츠와 웹사이트 기능을 분리합니다.
+```text
+ZIP / Markdown
+→ 로컬에서 한 번만 해제·분석
+→ 발행 파일명 정규화
+→ book.yaml 생성
+→ Git tree 생성
+→ 단일 commit 생성
+→ main ref 갱신
+→ GitHub Pages 배포
+```
+
+## 저장소 원칙
+
+- 책 하나는 가능한 한 하나의 Git tree와 하나의 commit으로 반영합니다.
+- `.webbook-upload`, 전송 조각, 복구용 workflow, trigger commit/PR을 발행 수단으로 사용하지 않습니다.
+- GitHub Actions는 사이트 빌드·배포에만 사용합니다.
+- `books/`에는 발행용 Markdown과 `book.yaml`만 둡니다.
+- 원본 Markdown 본문은 발행 과정에서 수정하지 않습니다.
 
 ## 기본 구조
 
 ```text
-webbooks/
-├─ books/               # 발행용 Markdown과 book.yaml
-│  ├─ buddhism/
-│  ├─ christianity/
-│  ├─ jung/
-│  ├─ hawkins/
-│  ├─ bailey/
-│  └─ other/
-├─ site/                # 공통 웹북 엔진·디자인
-├─ tools/               # 발행 준비 도구
-├─ WEBBOOK_STANDARD.md  # 공통 발행 규격
-└─ README.md
+.github/workflows/deploy-pages.yml
+books/
+site/
+tools/prepare_webbook.py
+WEBBOOK_STANDARD.md
+FAST_PUBLISH_PROTOCOL.md
 ```
-
-새 웹북은 원본 MD를 그대로 보존한 채 `books/` 아래에 발행용 복사본을 만들고, 번호·파일명·`book.yaml`만 표준화합니다.
-
-## 기본 발행 명령: `발행`
-
-이 저장소에서는 **ZIP 또는 Markdown 파일을 전달한 뒤 `발행`이라고 하는 방식**을 기본 운영 방식으로 사용합니다.
-
-발행 과정은 다음처럼 묶어서 처리합니다.
-
-```text
-ZIP / MD
-→ 로컬에서 일괄 확인·정규화
-→ 발행용 복사본 + book.yaml 생성
-→ 충돌·순서 검증
-→ GitHub에 한 번의 묶음 커밋
-→ Pages 배포 1회
-```
-
-수십·수백 개 파일을 GitHub에 하나씩 올리거나, ZIP을 여러 텍스트 조각으로 쪼개서 전송하는 방식은 기본 발행 공정으로 사용하지 않습니다.
-
-Notion은 **새 책을 처음 등록할 때만** 갱신하는 것을 기본으로 하고, 기존 웹북에 장을 추가하면서 공개 URL이 그대로라면 다시 수정하지 않습니다. Drive 백업 역시 파일별이 아니라 책 또는 릴리스 단위로 처리합니다.
-
-발행 전처리가 필요한 경우 `tools/prepare_webbook.py`를 사용할 수 있습니다. 이 도구는 원본 MD 내용을 다시 쓰지 않고, H1·공식 번호를 읽어 발행용 파일명과 `book.yaml`을 준비합니다.
-
-고속 발행 운영 규칙은 `FAST_PUBLISH_PROTOCOL.md`, 상세 발행 규격은 `WEBBOOK_STANDARD.md`를 따릅니다.
