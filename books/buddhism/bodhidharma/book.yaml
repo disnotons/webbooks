@@ -73,3 +73,6 @@ chapters:
   - id: "11.6"
     title: "11.6 三界者 貪嗔癡是(삼계자 탐진치시)"
     file: "chapters/11-06_삼계자_탐진치시.md"
+  - id: "11.7"
+    title: "11.7 返照(반조)"
+    file: "chapters/11-07_반조.md"
