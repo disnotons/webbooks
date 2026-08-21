@@ -70,3 +70,6 @@ chapters:
   - id: "11.5"
     title: "11.5 佛者 覺也(불자 각야)"
     file: "chapters/11-05_불자_각야.md"
+  - id: "11.6"
+    title: "11.6 三界者 貪嗔癡是(삼계자 탐진치시)"
+    file: "chapters/11-06_삼계자_탐진치시.md"
