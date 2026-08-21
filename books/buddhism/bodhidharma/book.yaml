@@ -31,3 +31,6 @@ chapters:
   - id: "10.8"
     title: "10.8 心外無佛 佛外無心(심외무불 불외무심)"
     file: "chapters/10-08_심외무불_불외무심.md"
+  - id: "10.9"
+    title: "10.9 見性(견성)"
+    file: "chapters/10-09_견성.md"
