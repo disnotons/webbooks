@@ -25,3 +25,6 @@ chapters:
   - id: "10.6"
     title: "10.6 汝本佛(여본불)"
     file: "chapters/10-06_여본불.md"
+  - id: "10.7"
+    title: "10.7 即心是佛(즉심시불)"
+    file: "chapters/10-07_즉심시불.md"
