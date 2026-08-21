@@ -16,3 +16,6 @@ chapters:
   - id: "10.3"
     title: "10.3 前佛後佛 以心傳心(전불후불 이심전심)"
     file: "chapters/10-03_전불후불_이심전심.md"
+  - id: "10.4"
+    title: "10.4 不立文字(불립문자)"
+    file: "chapters/10-04_불립문자.md"
