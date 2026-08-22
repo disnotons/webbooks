@@ -106,3 +106,6 @@ chapters:
   - id: "12.4"
     title: "12.4 總攝諸法(총섭제법)"
     file: "chapters/12-04_총섭제법.md"
+  - id: "12.5"
+    title: "12.5 心者萬法之根本(심자만법지근본)"
+    file: "chapters/12-05_심자만법지근본.md"
