@@ -10,3 +10,6 @@ chapters:
   - id: "1.1"
     title: "1.1 『자서전』 Prologue–Chapter III"
     file: "chapters/01-01_자서전_Prologue-Chapter_III.md"
+  - id: "1.2"
+    title: "1.2 『자서전』 Chapter IV–VIII"
+    file: "chapters/01-02_자서전_Chapter_IV-VIII.md"
