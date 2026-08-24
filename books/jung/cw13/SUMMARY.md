@@ -20,3 +20,4 @@
 * [2.6 물의 상징](chapters/CW13_Alchemical_Studies_2.6_물의_상징_1차해설본.md)
 * [2.7 환상의 기원](chapters/CW13_Alchemical_Studies_2.7_환상의_기원_1차해설본.md)
 * [3.1 『파라켈시카』 서문](chapters/CW13_Alchemical_Studies_3.1_파라켈시카_서문_1차해설본.md)
+* [3.2 두 가지 인식의 원천 — 자연의 빛과 계시의 빛](chapters/CW13_Alchemical_Studies_3.2_두_가지_인식의_원천_자연의_빛과_계시의_빛_1차해설본.md)
