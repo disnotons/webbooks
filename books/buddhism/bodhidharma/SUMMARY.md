@@ -60,7 +60,7 @@
 * [5.5 多起冤憎·違害無限(다기원증·위해무한)](chapters/달마대사_5.5_다기원증_위해무한_chaptered-md-commentary.md)
 * [5.6 宿殃·惡業果熟(숙앙·악업과숙)](chapters/달마대사_5.6_숙앙_악업과숙_chaptered-md-commentary.md)
 * [5.7 非天非人所能見與(비천비인소능견여)](chapters/달마대사_5.7_비천비인소능견여_chaptered-md-commentary.md)
-* [5.8 甘心甘受·都無冤訴(감심감수·도무원소)](chapters/달마대사_5.8_감심감수_도무원소_chaptered-md-commentary.md)
+* [5.8 甘心甘受·都無冤訴(감심감수·도무원소)](chapters/달마대사_5.8_감심감수·도무원소_chaptered-md-commentary.md)
 * [5.9 逢苦不憂·何以故·識達故(봉고불우·하이고·식달고)](chapters/달마대사_5.9_봉고불우·하이고·식달고_chaptered-md-commentary.md)
 * [5.10 與理相應(여리상응)](chapters/달마대사_5.10_여리상응_chaptered-md-commentary.md)
 * [5.11 體冤進道(체원진도)](chapters/달마대사_5.11_체원진도_chaptered-md-commentary.md)
@@ -241,3 +241,4 @@
 * [14.5 理入(이입)과 觀心(관심)](chapters/14-05_이입과_관심.md)
 * [14.6 無自無他(무자무타)·無我(무아)·空(공)](chapters/14-06_무자무타_무아_공.md)
 * [14.7 無所求(무소구)와 向外馳求(향외치구)](chapters/14-07_무소구와_향외치구.md)
+* [14.8 無著(무착)·離相(이상)·破相(파상)](chapters/14-08_무착_이상_파상.md)
