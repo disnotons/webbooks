@@ -24,3 +24,4 @@
 * [1.20 『자서전』 Relation VI](chapters/01-20_아빌라의_성녀_데레사_자서전_Relation_VI.md)
 * [1.21 『자서전』 Relation VII](chapters/01-21_아빌라의_성녀_데레사_자서전_Relation_VII.md)
 * [1.22 『자서전』 Relation VIII](chapters/01-22_아빌라의_성녀_데레사_자서전_Relation_VIII.md)
+* [1.23 『자서전』 Relation IX](chapters/01-23_아빌라의_성녀_데레사_자서전_Relation_IX.md)
