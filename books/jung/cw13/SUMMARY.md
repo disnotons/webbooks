@@ -24,3 +24,4 @@
 * [3.3 마술](chapters/CW13_Alchemical_Studies_3.3_마술_1차해설본.md)
 * [3.4 연금술](chapters/CW13_Alchemical_Studies_3.4_연금술_1차해설본.md)
 * [3.5 비밀 교설](chapters/CW13_Alchemical_Studies_3.5_비밀_교설_1차해설본.md)
+* [3.6 원초적 인간](chapters/CW13_Alchemical_Studies_3.6_원초적_인간_1차해설본.md)
