@@ -22,3 +22,5 @@
 * [3.1 『파라켈시카』 서문](chapters/CW13_Alchemical_Studies_3.1_파라켈시카_서문_1차해설본.md)
 * [3.2 두 가지 인식의 원천 — 자연의 빛과 계시의 빛](chapters/CW13_Alchemical_Studies_3.2_두_가지_인식의_원천_자연의_빛과_계시의_빛_1차해설본.md)
 * [3.3 마술](chapters/CW13_Alchemical_Studies_3.3_마술_1차해설본.md)
+* [3.4 연금술](chapters/CW13_Alchemical_Studies_3.4_연금술_1차해설본.md)
+* [3.5 비밀 교설](chapters/CW13_Alchemical_Studies_3.5_비밀_교설_1차해설본.md)
