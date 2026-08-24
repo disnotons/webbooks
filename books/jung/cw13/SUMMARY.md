@@ -18,3 +18,4 @@
 * [2.4 인격화](chapters/CW13_Alchemical_Studies_2.4_인격화_1차해설본.md)
 * [2.5 돌의 상징](chapters/CW13_Alchemical_Studies_2.5_돌의_상징_1차해설본.md)
 * [2.6 물의 상징](chapters/CW13_Alchemical_Studies_2.6_물의_상징_1차해설본.md)
+* [2.7 환상의 기원](chapters/CW13_Alchemical_Studies_2.7_환상의_기원_1차해설본.md)
