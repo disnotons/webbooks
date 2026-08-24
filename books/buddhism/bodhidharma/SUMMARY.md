@@ -61,7 +61,7 @@
 * [5.6 宿殃·惡業果熟(숙앙·악업과숙)](chapters/달마대사_5.6_숙앙_악업과숙_chaptered-md-commentary.md)
 * [5.7 非天非人所能見與(비천비인소능견여)](chapters/달마대사_5.7_비천비인소능견여_chaptered-md-commentary.md)
 * [5.8 甘心甘受·都無冤訴(감심감수·도무원소)](chapters/달마대사_5.8_감심감수_도무원소_chaptered-md-commentary.md)
-* [5.9 逢苦不憂·何以故·識達故(봉고불우·하이고·식달고)](chapters/달마대사_5.9_봉고불우_하이고_식달고_chaptered-md-commentary.md)
+* [5.9 逢苦不憂·何以故·識達故(봉고불우·하이고·식달고)](chapters/달마대사_5.9_봉고불우·하이고·식달고_chaptered-md-commentary.md)
 * [5.10 與理相應(여리상응)](chapters/달마대사_5.10_여리상응_chaptered-md-commentary.md)
 * [5.11 體冤進道(체원진도)](chapters/달마대사_5.11_체원진도_chaptered-md-commentary.md)
 * [5.12 報冤行(보원행) ≠ 부당함의 정당화](chapters/달마대사_5.12_보원행_부당함의_정당화_아님_chaptered-md-commentary.md)
@@ -112,7 +112,7 @@
 * [8.4 無染無著(무염무착)](chapters/달마대사_8.4_무염무착_chaptered-md-commentary.md)
 * [8.5 無此無彼(무차무피)](chapters/달마대사_8.5_무차무피_chaptered-md-commentary.md)
 * [8.6 法無眾生，離眾生垢故(법무중생 이중생구고)](chapters/달마대사_8.6_법무중생_이중생구고_chaptered-md-commentary.md)
-* [8.7 法無有我，離我垢故(법무유아 이아구고)](chapters/달마대사_8.7_법무유아_이아구고_chaptered-md-commentary.md)
+* [8.7 法無有我，離我垢故(법무유아 이아구고)](chapters/달마대사_8.7_법무유아 이아구고_chaptered-md-commentary.md)
 * [8.8 智者若能信解此理，應當稱法而行(지자약능신해차리 응당칭법이행)](chapters/달마대사_8.8_신해차리_칭법이행_chaptered-md-commentary.md)
 * [8.9 法體無慳(법체무간)](chapters/달마대사_8.9_법체무간_chaptered-md-commentary.md)
 * [8.10 身命財行檀捨施(신명재 행단사시)](chapters/달마대사_8.10_신명재_행단사시_chaptered-md-commentary.md)
@@ -236,3 +236,4 @@
 
 * [14.1 문헌층 전체 지도 — 무엇을 가장 먼저 믿을 것인가](chapters/14-01_문헌층_전체지도.md)
 * [14.2 安心(안심)](chapters/14-02_안심.md)
+* [14.3 壁觀(벽관)](chapters/14-03_벽관.md)
