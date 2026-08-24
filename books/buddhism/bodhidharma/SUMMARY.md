@@ -72,7 +72,7 @@
 * [6.1 隨緣行(수연행)이란 무엇인가](chapters/달마대사_6.1_수연행이란_무엇인가_chaptered-md-commentary.md)
 * [6.2 眾生無我(중생무아)](chapters/달마대사_6.2_중생무아_chaptered-md-commentary.md)
 * [6.3 並緣業所轉(병연업소전)](chapters/달마대사_6.3_병연업소전_chaptered-md-commentary.md)
-* [6.4 苦樂齊受·皆從緣生(고락제수 개종연생)](chapters/달마대사_6.4_고락제수_개종연생_chaptered-md-commentary.md)
+* [6.4 苦樂齊受·皆從緣生(고락제수·개종연생)](chapters/달마대사_6.4_고락제수_개종연생_chaptered-md-commentary.md)
 * [6.5 勝報榮譽(승보영예)](chapters/달마대사_6.5_승보영예_chaptered-md-commentary.md)
 * [6.6 緣盡還無(연진환무)](chapters/달마대사_6.6_연진환무_chaptered-md-commentary.md)
 * [6.7 何喜之有(하희지유)](chapters/달마대사_6.7_하희지유_chaptered-md-commentary.md)
