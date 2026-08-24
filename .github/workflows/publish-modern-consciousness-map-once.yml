@@ -1,0 +1,111 @@
+name: Publish modern consciousness map once
+
+on:
+  push:
+    branches:
+      - publish-modern-consciousness-map-20260825
+    paths:
+      - '.webbook-upload/reality-spirituality-modern-man/READY'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-modern-consciousness-map-once
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Recover and verify prepared webbook
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH='publish-modern-consciousness-map-20260825'
+          UPLOAD='.webbook-upload/reality-spirituality-modern-man'
+          git fetch origin "$BRANCH:refs/remotes/origin/$BRANCH"
+          mkdir -p /tmp/modern-map-parts /tmp/modern-map-package
+          git ls-tree -r --name-only "origin/$BRANCH" "$UPLOAD/parts" | sort > /tmp/part-list.txt
+          test "$(wc -l < /tmp/part-list.txt | tr -d ' ')" = 53
+          while IFS= read -r path; do
+            git show "origin/$BRANCH:$path"
+          done < /tmp/part-list.txt > /tmp/package.b85
+          python - <<'PY'
+          from pathlib import Path, PurePosixPath
+          import base64, hashlib, io, tarfile
+
+          encoded = Path('/tmp/package.b85').read_text(encoding='utf-8')
+          package = base64.b85decode(encoded.encode('ascii'))
+          expected_archive = 'e8205d472e04279c91324b7a0e93ae55060e494246537fb6de058e06beba8d6a'
+          got_archive = hashlib.sha256(package).hexdigest()
+          print('Archive SHA256:', got_archive)
+          if got_archive != expected_archive:
+              raise SystemExit('Archive SHA256 mismatch')
+
+          dest = Path('/tmp/modern-map-package')
+          prefix = PurePosixPath('books/hawkins/reality-spirituality-modern-man')
+          with tarfile.open(fileobj=io.BytesIO(package), mode='r:xz') as tf:
+              members = tf.getmembers()
+              for m in members:
+                  rel = PurePosixPath(m.name)
+                  if rel.is_absolute() or '..' in rel.parts:
+                      raise SystemExit(f'Unsafe archive path: {m.name}')
+                  if tuple(rel.parts[:len(prefix.parts)]) != tuple(prefix.parts):
+                      raise SystemExit(f'Unexpected archive path: {m.name}')
+                  if m.issym() or m.islnk():
+                      raise SystemExit(f'Links are forbidden: {m.name}')
+              tf.extractall(dest)
+
+          root = dest / 'books/hawkins/reality-spirituality-modern-man'
+          required = ['README.md', 'SUMMARY.md', '.gitbook.yaml']
+          for name in required:
+              if not (root / name).is_file():
+                  raise SystemExit(f'Missing required file: {name}')
+
+          chapters = sorted(root.glob('[0-9][0-9]_제*장.md'))
+          expected_names = [f'{i:02d}_제{i}장.md' for i in range(1, 20)]
+          if [p.name for p in chapters] != expected_names:
+              raise SystemExit('Chapter file set mismatch')
+
+          h = hashlib.sha256()
+          for p in chapters:
+              h.update(p.name.encode('utf-8')); h.update(b'\0')
+              h.update(p.read_bytes()); h.update(b'\0')
+          expected_chapters = '721450fbd7d320f5024be8483d4c47f50ae8c8e4a3cdac4c1a33f16d824f6094'
+          got_chapters = h.hexdigest()
+          print('Chapter aggregate SHA256:', got_chapters)
+          if got_chapters != expected_chapters:
+              raise SystemExit('Chapter aggregate SHA256 mismatch')
+          PY
+
+      - name: Publish one verified main commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET='books/hawkins/reality-spirituality-modern-man'
+          BASE_SHA="$(git rev-parse HEAD)"
+          test ! -e "$TARGET"
+          mkdir -p books/hawkins
+          cp -a "/tmp/modern-map-package/$TARGET" "$TARGET"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$TARGET"
+          bad="$(git -c core.quotepath=false diff --cached --name-only | grep -Ev '^books/hawkins/reality-spirituality-modern-man/' || true)"
+          test -z "$bad"
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git commit -m 'Publish 현대인의 의식 지도 webbook'
+          git push origin HEAD:main
+
+      - name: Remove temporary transfer branch
+        if: success()
+        shell: bash
+        run: |
+          git push origin --delete publish-modern-consciousness-map-20260825
