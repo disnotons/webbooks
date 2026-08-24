@@ -29,3 +29,4 @@
 * [1.25 『자서전』 Relation XI](chapters/01-25_아빌라의_성녀_데레사_자서전_Relation_XI.md)
 * [2.1 『완덕의 길』 Prologue–Chapter III](chapters/02-01_아빌라의_성녀_데레사_완덕의길_Prologue-Chapter_III.md)
 * [2.2 『완덕의 길』 Chapter IV–VII](chapters/02-02_아빌라의_성녀_데레사_완덕의길_Chapter_IV-VII.md)
+* [2.3 『완덕의 길』 Chapter VIII–XIII](chapters/02-03_아빌라의_성녀_데레사_완덕의길_Chapter_VIII-XIII.md)
