@@ -11,16 +11,19 @@ ZIP 또는 Markdown 입력을 한 책 단위로 처리한다.
 3. 공식 번호 → 첫 H1 → 확정 목차 → 기존 파일명 순으로 발행 파일명을 결정한다.
 4. 발행용 복사본과 GitBook용 `README.md`, `SUMMARY.md`, `.gitbook.yaml`을 준비한다.
 5. 기존 GitHub 경로와 파일 충돌을 확인한다.
-6. 정상 API 발행에서는 새 파일을 하나의 Git tree로 구성한다.
-7. 하나의 commit을 만들고 `main`에 반영한다.
-8. GitBook Git Sync와 공개 화면을 확인한다.
-9. 새 책이면 필요한 경우 Notion 도서관에 한 번 등록한다. 기존 공개 URL이 유지되면 Notion은 다시 수정하지 않는다.
-10. Drive 백업은 필요할 때 책 폴더 또는 릴리스 ZIP 단위로 처리하며 GitHub 발행을 지연시키지 않는다.
+6. 커밋 직전 최신 `main` commit과 tree를 다시 확인한다.
+7. 정상 API 발행에서는 변경분을 하나의 Git tree로 구성한다.
+8. 하나의 commit을 만들고 `main`에 반영한다.
+9. GitBook Git Sync와 공개 화면을 확인한다.
+10. 새 책이면 `library/`의 해당 분야 인덱스를 갱신한다. 기존 책에 장만 추가되고 공개 URL이 유지되면 중앙 도서관은 수정하지 않는다.
+11. Notion 등 외부 도서관은 사용자가 원할 때만 등록한다.
+12. Drive 백업은 필요할 때 책 폴더 또는 릴리스 ZIP 단위로 처리하며 GitHub 발행을 지연시키지 않는다.
 
 ## 기본 GitHub 반영 방식
 
 ```text
 로컬 준비
+→ 최신 main 확인
 → create_tree
 → create_commit
 → update_ref(main)
@@ -28,6 +31,21 @@ ZIP 또는 Markdown 입력을 한 책 단위로 처리한다.
 ```
 
 가능하면 **책 하나 = commit 하나**를 기본으로 한다.
+
+여러 연구 프로젝트가 같은 `main`을 동시에 갱신할 수 있으므로 오래된 tree를 기준으로 커밋하지 않는다.
+
+## GitBook 중앙 도서관
+
+중앙 독자용 입구는 저장소의 `library/`를 사용한다.
+
+```text
+library/                         중앙 웹북 도서관 Space
+books/<분야>/<책-slug>/          개별 책 Space
+```
+
+새 책을 처음 공개할 때만 분야별 인덱스에 추가한다.
+
+GitBook에서 여러 Space를 한 Docs Site에 연결할 수 있으면 `library/`를 기본 Section으로 두고 개별 책 Space를 Section으로 연결한다. 해당 기능을 사용할 수 없으면 확인된 개별 공개 URL만 `library/`에서 링크한다. URL을 추정하지 않는다.
 
 ## 모바일 단일 ZIP 예외
 
@@ -78,6 +96,8 @@ books/<분야>/<책-slug>/
 - recovery / materialize / 책별 one-shot publish workflow를 새로 만드는 방식
 - 검증을 위한 반복 commit
 - Actions에서 기존 `main`을 강제로 재작성하는 방식
+- 자체 웹북 엔진
+- GitHub Pages 정적 웹북 빌드
 
 단, 위의 **모바일 단일 ZIP 예외 공정**은 허용한다.
 
@@ -98,6 +118,7 @@ books/<분야>/<책-slug>/
 - 충돌 실패 → 충돌 파일만 확인
 - Action 실패 → 해당 Action 로그만 확인
 - GitBook Sync 실패 → GitBook 연결만 확인
+- 중앙 도서관 링크 실패 → 실제 공개 URL만 재확인
 
 ## 완료 기준
 
@@ -108,3 +129,4 @@ books/<분야>/<책-slug>/
 - GitHub 반영 완료
 - GitBook Git Sync 완료
 - 공개 URL 정상 열림
+- 새 책이면 `library/` 인덱스 반영
