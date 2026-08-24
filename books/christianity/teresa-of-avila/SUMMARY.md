@@ -33,3 +33,4 @@
 * [2.4 『완덕의 길』 Chapter XIV–XVII](chapters/02-04_아빌라의_성녀_데레사_완덕의길_Chapter_XIV-XVII.md)
 * [2.5 『완덕의 길』 Chapter XVIII–XXI](chapters/02-05_아빌라의_성녀_데레사_완덕의길_Chapter_XVIII-XXI.md)
 * [2.6 『완덕의 길』 Chapter XXII–XXV](chapters/02-06_아빌라의_성녀_데레사_완덕의길_Chapter_XXII-XXV.md)
+* [2.7 『완덕의 길』 Chapter XXVI–XXIX](chapters/02-07_아빌라의_성녀_데레사_완덕의길_Chapter_XXVI-XXIX.md)
