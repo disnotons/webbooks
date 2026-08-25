@@ -31,9 +31,9 @@ jobs:
           BRANCH='publish-modern-consciousness-map-20260825'
           UPLOAD='.webbook-upload/reality-spirituality-modern-man'
           git fetch origin "$BRANCH:refs/remotes/origin/$BRANCH"
-          mkdir -p /tmp/modern-map-parts /tmp/modern-map-package
-          git ls-tree -r --name-only "origin/$BRANCH" "$UPLOAD/parts" | sort > /tmp/part-list.txt
-          test "$(wc -l < /tmp/part-list.txt | tr -d ' ')" = 53
+          mkdir -p /tmp/modern-map-package
+          git ls-tree -r --name-only "origin/$BRANCH" "$UPLOAD/bigparts" | sort > /tmp/part-list.txt
+          test "$(wc -l < /tmp/part-list.txt | tr -d ' ')" = 6
           while IFS= read -r path; do
             git show "origin/$BRANCH:$path"
           done < /tmp/part-list.txt > /tmp/package.b85
@@ -64,8 +64,7 @@ jobs:
               tf.extractall(dest)
 
           root = dest / 'books/hawkins/reality-spirituality-modern-man'
-          required = ['README.md', 'SUMMARY.md', '.gitbook.yaml']
-          for name in required:
+          for name in ['README.md', 'SUMMARY.md', '.gitbook.yaml']:
               if not (root / name).is_file():
                   raise SystemExit(f'Missing required file: {name}')
 
