@@ -1,0 +1,51 @@
+name: TEMP Export Hawkins Notion MD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/_temp_export_hawkins_notion.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Notion import folders
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p export/hawkins-games export/what-is-truth-the-absolute
+          cp books/hawkins/hawkins-games/README.md export/hawkins-games/
+          cp books/hawkins/hawkins-games/[0-9][0-9]_*.md export/hawkins-games/
+          rm -f export/hawkins-games/SUMMARY.md
+
+          cp books/hawkins/what-is-truth-the-absolute/README.md export/what-is-truth-the-absolute/
+          cp books/hawkins/what-is-truth-the-absolute/[0-9][0-9]_*.md export/what-is-truth-the-absolute/
+          rm -f export/what-is-truth-the-absolute/SUMMARY.md
+
+          echo 'Game files:'
+          find export/hawkins-games -maxdepth 1 -type f -printf '%f\n' | sort
+          echo 'Truth files:'
+          find export/what-is-truth-the-absolute -maxdepth 1 -type f -printf '%f\n' | sort
+
+      - name: Upload game webbook
+        uses: actions/upload-artifact@v4
+        with:
+          name: hawkins-games-notion-md
+          path: export/hawkins-games/
+          if-no-files-found: error
+          compression-level: 6
+
+      - name: Upload 2007-07 truth webbook
+        uses: actions/upload-artifact@v4
+        with:
+          name: what-is-truth-the-absolute-2007-07-notion-md
+          path: export/what-is-truth-the-absolute/
+          if-no-files-found: error
+          compression-level: 6
